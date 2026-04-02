@@ -1,6 +1,6 @@
 {
   "name": "webfetch-plus",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "description": "Timeout-safe MCP server replacing Claude Code's built-in WebFetch",
   "main": "dist/index.js",
