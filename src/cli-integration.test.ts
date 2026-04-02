@@ -3,7 +3,9 @@ import { mkdtemp, rm, writeFile, readFile, access } from
   'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { install, buildHookCommand } from './cli-install.js';
+import {
+  install, buildHookCommand, buildMcpEntry,
+} from './cli-install.js';
 import { uninstall } from './cli-uninstall.js';
 import {
   readJsonFile,
@@ -45,11 +47,9 @@ describe('install end-to-end', () => {
     const mcp = JSON.parse(
       await readFile(target.mcpConfig, 'utf8'),
     );
-    expect(mcp.mcpServers['webfetch-plus']).toEqual({
-      command: 'npx',
-      args: ['-y', 'webfetch-plus'],
-      env: { NODE_OPTIONS: '--use-system-ca' },
-    });
+    expect(mcp.mcpServers['webfetch-plus']).toEqual(
+      buildMcpEntry(),
+    );
 
     // .claude/settings.json
     const settings = JSON.parse(
@@ -105,11 +105,9 @@ describe('install end-to-end', () => {
       command: 'node',
       args: ['other.js'],
     });
-    expect(mcp.mcpServers['webfetch-plus']).toEqual({
-      command: 'npx',
-      args: ['-y', 'webfetch-plus'],
-      env: { NODE_OPTIONS: '--use-system-ca' },
-    });
+    expect(mcp.mcpServers['webfetch-plus']).toEqual(
+      buildMcpEntry(),
+    );
   });
 });
 

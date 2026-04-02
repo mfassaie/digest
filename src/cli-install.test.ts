@@ -4,13 +4,10 @@ import {
   addPreToolUseHook,
   addPermissions,
   buildHookCommand,
+  buildMcpEntry,
 } from './cli-install.js';
 
-const MCP_ENTRY = {
-  command: 'npx',
-  args: ['-y', 'webfetch-plus'],
-  env: { NODE_OPTIONS: '--use-system-ca' },
-};
+const MCP_ENTRY = buildMcpEntry();
 
 describe('buildHookCommand', () => {
   const command = buildHookCommand();

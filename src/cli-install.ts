@@ -1,13 +1,19 @@
 import { mkdir } from 'node:fs/promises';
+import { platform } from 'node:os';
 import type { ConfigTarget } from './types.js';
 import { readJsonFile, writeJsonFile } from
   './cli-json.js';
 
-const MCP_ENTRY = {
-  command: 'npx',
-  args: ['-y', 'webfetch-plus'],
-  env: { NODE_OPTIONS: '--use-system-ca' },
-};
+export function buildMcpEntry(): Record<string, unknown> {
+  const isWin = platform() === 'win32';
+  return {
+    command: isWin ? 'cmd' : 'npx',
+    args: isWin
+      ? ['/c', 'npx', '-y', 'webfetch-plus']
+      : ['-y', 'webfetch-plus'],
+    env: { NODE_OPTIONS: '--use-system-ca' },
+  };
+}
 
 const DENY_REASON =
   'Use mcp__webfetch-plus__webfetch_plus instead.' +
@@ -31,7 +37,7 @@ export function addMcpServer(
 ): Record<string, unknown> {
   const servers = (config.mcpServers ?? {}) as
     Record<string, unknown>;
-  servers['webfetch-plus'] = { ...MCP_ENTRY };
+  servers['webfetch-plus'] = buildMcpEntry();
   return { ...config, mcpServers: servers };
 }
 
