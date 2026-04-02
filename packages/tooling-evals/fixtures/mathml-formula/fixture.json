@@ -1,0 +1,5 @@
+{
+  "url": "https://mathref.example/reference/formulas",
+  "category": "mathml",
+  "notes": "Math reference page with two block MathML expressions (quadratic formula and summation) plus surrounding headings and prose. Tests that the converter does not crash on MathML and that headings/prose survive. Golden renders formulas as plain-text/LaTeX-ish approximations."
+}

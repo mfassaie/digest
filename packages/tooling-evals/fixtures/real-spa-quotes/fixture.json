@@ -1,0 +1,7 @@
+{
+  "url": "https://quotes.toscrape.com/js/",
+  "category": "spa",
+  "notes": "JS-rendered SPA: content only exists after hydration",
+  "capturedAt": "2026-06-10",
+  "real": true
+}

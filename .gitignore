@@ -1,0 +1,12 @@
+CLAUDE.local.md
+.claude/
+.mcp.json
+digest.code-workspace
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.falk
+.obsidian/
+.claudian/
+/.obsidianignore

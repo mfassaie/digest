@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard — Fleet Console</title>
+</head>
+<body>
+  <div id="root">
+    <div class="app-shell">
+      <nav class="app-bar" aria-label="primary">
+        <span class="brand">Fleet Console</span>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/vehicles">Vehicles</a>
+        <a href="/settings">Settings</a>
+        <button class="avatar">Account</button>
+      </nav>
+      <main class="content">
+        <h1>Fleet Dashboard</h1>
+        <p>Live status across all active vehicles, refreshed every minute.</p>
+        <h2>Status summary</h2>
+        <table>
+          <thead>
+            <tr><th>Status</th><th>Count</th><th>Change</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Active</td><td>128</td><td>+4</td></tr>
+            <tr><td>Idle</td><td>37</td><td>-2</td></tr>
+            <tr><td>Maintenance</td><td>9</td><td>+1</td></tr>
+          </tbody>
+        </table>
+        <h2>Alerts</h2>
+        <ul>
+          <li>Vehicle 1042 reported low battery</li>
+          <li>Depot B scheduled for maintenance at 18:00</li>
+          <li>Route 7 delayed by traffic</li>
+        </ul>
+      </main>
+    </div>
+  </div>
+  <footer class="app-footer">
+    <p>&copy; 2026 Fleet Console · v4.1.0</p>
+  </footer>
+</body>
+</html>

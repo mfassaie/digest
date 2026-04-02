@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>はじめてのコンテナ入門</title>
+</head>
+<body>
+  <header class="site-header">
+    <nav aria-label="primary">
+      <a href="/">ホーム</a>
+      <a href="/docs">ドキュメント</a>
+      <a href="/guide">ガイド</a>
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <ul>
+        <li><a href="/guide/install">インストール</a></li>
+        <li><a href="/guide/run">実行</a></li>
+      </ul>
+    </aside>
+    <main>
+      <article>
+        <h1>はじめてのコンテナ入門</h1>
+        <p>このガイドでは、コンテナの基本的な考え方と、最初のイメージを
+        作成する手順を説明します。コンテナはアプリケーションとその依存関係を
+        一つの単位にまとめる仕組みです。</p>
+        <h2>コンテナとは</h2>
+        <p>コンテナは軽量で、起動が速く、どの環境でも同じように動作します。
+        仮想マシンと違い、ホストのカーネルを共有するため資源効率が高いのが
+        特徴です。</p>
+        <h2>主な利点</h2>
+        <ul>
+          <li>環境差異をなくし、再現性を高める</li>
+          <li>起動が速く、拡張しやすい</li>
+          <li>依存関係を分離できる</li>
+        </ul>
+        <h2>次のステップ</h2>
+        <p>イメージをビルドしたら、レジストリへ公開して他の開発者と
+        共有できます。次の章では実際にコマンドを実行します。</p>
+      </article>
+    </main>
+  </div>
+  <footer class="site-footer">
+    <p>&copy; 2026 コンテナ研究会</p>
+  </footer>
+</body>
+</html>

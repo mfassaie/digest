@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a bug or unexpected behaviour
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the issue.
+      placeholder: |
+        1. Run `digest doctor`
+        2. Fetch a URL with `fetch_file`
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Version info and platform.
+      value: |
+        - digest version:
+        - Node version:
+        - Docker version (if applicable):
+        - OS:
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Paste relevant log output. Logs are in `<artefact-root>/logs/`.
+      render: text
+    validations:
+      required: false

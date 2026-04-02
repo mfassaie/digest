@@ -1,0 +1,5 @@
+{
+  "url": "https://metroherald.example/local/transit-overhaul",
+  "category": "news-boilerplate",
+  "notes": "News article wrapped in heavy boilerplate: cookie banner, top nav, share buttons, related-stories sidebar, newsletter signup, and footer. Extraction stress test — golden is the headline and article body only."
+}

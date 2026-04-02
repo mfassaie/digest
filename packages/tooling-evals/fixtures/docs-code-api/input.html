@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Client.connect() — Acme SDK</title>
+</head>
+<body>
+  <header class="site-header">
+    <nav aria-label="primary">
+      <a href="/">Home</a>
+      <a href="/docs">Docs</a>
+      <a href="/api">API</a>
+      <input type="search" placeholder="Search docs">
+    </nav>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <ul>
+        <li><a href="/api/client">Client</a></li>
+        <li><a href="/api/session">Session</a></li>
+        <li><a href="/api/errors">Errors</a></li>
+      </ul>
+    </aside>
+    <main>
+      <article>
+        <h1>Client.connect()</h1>
+        <p>Open a connection to the Acme service. The call resolves once
+        the handshake completes or rejects on timeout.</p>
+        <h2>Signature</h2>
+        <pre><code class="language-typescript">async function connect(
+  options: ConnectOptions,
+): Promise&lt;Session&gt;</code></pre>
+        <h2>Example</h2>
+        <p>Connect with an API key and a custom timeout:</p>
+        <pre><code class="language-javascript">const client = new Client();
+const session = await client.connect({
+  apiKey: process.env.ACME_KEY,
+  timeoutMs: 5000,
+});
+console.log(session.id);</code></pre>
+        <h2>Options</h2>
+        <p>The <code>ConnectOptions</code> object accepts:</p>
+        <ul>
+          <li><strong>apiKey</strong> — required credential string.</li>
+          <li><strong>timeoutMs</strong> — handshake timeout, default 3000.</li>
+          <li><strong>retries</strong> — reconnect attempts, default 0.</li>
+        </ul>
+        <h2>Shell setup</h2>
+        <pre><code class="language-bash">export ACME_KEY="sk-..."
+npm install @acme/sdk</code></pre>
+        <h3>Errors</h3>
+        <p>Throws <code>ConnectTimeout</code> when the handshake exceeds
+        <code>timeoutMs</code>.</p>
+      </article>
+    </main>
+  </div>
+  <footer class="site-footer">
+    <p>&copy; 2026 Acme Inc. <a href="/privacy">Privacy</a></p>
+  </footer>
+</body>
+</html>

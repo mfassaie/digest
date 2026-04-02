@@ -1,0 +1,5 @@
+{
+  "url": "https://docs.acme.example/api/client",
+  "category": "docs-code",
+  "notes": "Documentation page with nav/sidebar/footer boilerplate and fenced code blocks in three languages. Tests extraction plus code-fence and heading fidelity."
+}

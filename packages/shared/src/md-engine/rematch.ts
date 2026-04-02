@@ -1,0 +1,163 @@
+import type { ContentBlock, DocumentSection } from './types.js';
+
+// Sticky-id re-match across re-parses (design §2.4, Rev 2 §5.3 rules):
+// within a matched parent, child sections pair by exact (type, title) in
+// document order, then leftovers pair by sibling index when types agree
+// (the rename-in-place case). Each previous node is consumed at most once
+// and unmatched previous ids simply retire — combined with random minting
+// (ids.ts) that is what makes "retired ids never reused" hold. Blocks pair
+// by content hash first (an identical block keeps its id through sibling
+// inserts), then by index + type. Matching never recurses into unmatched
+// parents: parent identity anchors child identity, so a section that both
+// moves and retitles re-mints its subtree — acceptable by design (plan §6).
+
+export interface RematchOptions {
+  // ISO timestamp: stamped as created_at on new nodes and as updated_at on
+  // matched nodes whose hash changed. Omitted = no timestamps touched
+  // beyond carrying the previous ones over.
+  now?: string;
+}
+
+// Mutates `next` (a freshly folded tree) in place and returns it.
+export function rematchIds(
+  previous: DocumentSection, next: DocumentSection,
+  opts: RematchOptions = {},
+): DocumentSection {
+  adoptSection(previous, next, opts.now);
+  return next;
+}
+
+function adoptSection(
+  prev: DocumentSection, next: DocumentSection, now: string | undefined,
+): void {
+  next.id = prev.id;
+  carryTimestamps(prev, next, now);
+  matchBlocks(prev.content ?? [], next.content ?? [], now);
+  matchChildren(prev.children ?? [], next.children ?? [], now);
+}
+
+function adoptBlock(
+  prev: ContentBlock, next: ContentBlock, now: string | undefined,
+): void {
+  next.id = prev.id;
+  carryTimestamps(prev, next, now);
+}
+
+function carryTimestamps(
+  prev: { hash: string; created_at?: string; updated_at?: string },
+  next: { hash: string; created_at?: string; updated_at?: string },
+  now: string | undefined,
+): void {
+  if (prev.created_at !== undefined) next.created_at = prev.created_at;
+  if (next.hash === prev.hash) {
+    if (prev.updated_at !== undefined) next.updated_at = prev.updated_at;
+  } else if (now !== undefined) {
+    next.updated_at = now;
+  }
+}
+
+function matchChildren(
+  prev: DocumentSection[], next: DocumentSection[], now: string | undefined,
+): void {
+  const matchedPrev = new Set<DocumentSection>();
+  const matchedNext = new Set<DocumentSection>();
+
+  // Pass 1: exact (type, title) pairs, consumed in document order so
+  // duplicate titles pair first-to-first, second-to-second.
+  const byKey = new Map<string, DocumentSection[]>();
+  for (const p of prev) {
+    const key = sectionKey(p);
+    let queue = byKey.get(key);
+    if (!queue) {
+      queue = [];
+      byKey.set(key, queue);
+    }
+    queue.push(p);
+  }
+  for (const n of next) {
+    const p = byKey.get(sectionKey(n))?.shift();
+    if (p) {
+      adoptSection(p, n, now);
+      matchedPrev.add(p);
+      matchedNext.add(n);
+    }
+  }
+
+  // Pass 2: same sibling index, same type, both still unmatched.
+  for (let i = 0; i < next.length; i++) {
+    const n = next[i]!;
+    if (matchedNext.has(n)) continue;
+    const p = prev[i];
+    if (p !== undefined && !matchedPrev.has(p) && p.type === n.type) {
+      adoptSection(p, n, now);
+      matchedPrev.add(p);
+      matchedNext.add(n);
+    }
+  }
+
+  // Leftover next sections are new: keep their minted ids, stamp the
+  // whole new subtree.
+  for (const n of next) {
+    if (!matchedNext.has(n)) stampNewSection(n, now);
+  }
+}
+
+function sectionKey(s: DocumentSection): string {
+  return `${s.type}\u0000${s.title ?? ''}`;
+}
+
+function matchBlocks(
+  prev: ContentBlock[], next: ContentBlock[], now: string | undefined,
+): void {
+  const matchedPrev = new Set<ContentBlock>();
+  const matchedNext = new Set<ContentBlock>();
+
+  // Pass 1: identical content — hash already encodes (type, value, meta).
+  const byHash = new Map<string, ContentBlock[]>();
+  for (const p of prev) {
+    let queue = byHash.get(p.hash);
+    if (!queue) {
+      queue = [];
+      byHash.set(p.hash, queue);
+    }
+    queue.push(p);
+  }
+  for (const n of next) {
+    const p = byHash.get(n.hash)?.shift();
+    if (p) {
+      adoptBlock(p, n, now);
+      matchedPrev.add(p);
+      matchedNext.add(n);
+    }
+  }
+
+  // Pass 2: same index, same type — the edited-in-place case.
+  for (let i = 0; i < next.length; i++) {
+    const n = next[i]!;
+    if (matchedNext.has(n)) continue;
+    const p = prev[i];
+    if (p !== undefined && !matchedPrev.has(p) && p.type === n.type) {
+      adoptBlock(p, n, now);
+      matchedPrev.add(p);
+      matchedNext.add(n);
+    }
+  }
+
+  for (const n of next) {
+    if (!matchedNext.has(n) && now !== undefined
+      && n.created_at === undefined) {
+      n.created_at = now;
+    }
+  }
+}
+
+function stampNewSection(
+  section: DocumentSection, now: string | undefined,
+): void {
+  if (now === undefined) return;
+  if (section.created_at === undefined) section.created_at = now;
+  for (const b of section.content ?? []) {
+    if (b.created_at === undefined) b.created_at = now;
+  }
+  for (const c of section.children ?? []) stampNewSection(c, now);
+}

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Changelog — Orbit CLI</title>
+</head>
+<body>
+  <header class="site-header">
+    <nav aria-label="primary">
+      <a href="/">Home</a>
+      <a href="/docs">Docs</a>
+      <a href="/changelog">Changelog</a>
+    </nav>
+  </header>
+  <main>
+    <article>
+      <h1>Changelog</h1>
+      <p>Release notes for the Orbit CLI, newest first.</p>
+      <h2>v3.2.0</h2>
+      <ul>
+        <li>New commands
+          <ul>
+            <li><code>orbit sync</code> — mirror remote state locally
+              <ul>
+                <li>Supports <code>--dry-run</code> to preview changes</li>
+                <li>Respects <code>.orbitignore</code> patterns</li>
+              </ul>
+            </li>
+            <li><code>orbit doctor</code> — diagnose config problems</li>
+          </ul>
+        </li>
+        <li>Performance
+          <ul>
+            <li>Parallelised manifest parsing
+              <ul>
+                <li>Up to 4x faster on large repos</li>
+                <li>Falls back to serial mode under low memory</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+      <h2>v3.1.0</h2>
+      <p>Upgrade steps, in order:</p>
+      <ol>
+        <li>Back up your <code>orbit.toml</code></li>
+        <li>Run the migration
+          <ol>
+            <li>Execute <code>orbit migrate --to 3.1</code></li>
+            <li>Review the generated diff
+              <ol>
+                <li>Accept renamed keys</li>
+                <li>Resolve any conflicts manually</li>
+              </ol>
+            </li>
+          </ol>
+        </li>
+        <li>Re-run your test suite</li>
+      </ol>
+    </article>
+  </main>
+  <footer class="site-footer">
+    <p>&copy; 2026 Orbit Labs. <a href="/privacy">Privacy</a></p>
+  </footer>
+</body>
+</html>

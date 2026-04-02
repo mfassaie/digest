@@ -1,0 +1,116 @@
+export type ContentCategory = 'html' | 'text' | 'json' | 'binary';
+
+export interface Section {
+  level: number;
+  title: string;
+  slug: string;
+  startLine: number;
+  endLine: number;
+}
+
+// Persisted alongside cached content (meta.json). Written by the host after
+// a successful container fetch.
+export interface CacheMeta {
+  cacheVersion: 2;
+  url: string;
+  finalUrl: string;
+  contentType: string;
+  category: ContentCategory | string;
+  converter: string;
+  fetchedAt: string;
+  etag?: string;
+  lastModified?: string;
+  // Document metadata surfaced by the converter (defuddle).
+  title?: string;
+  description?: string;
+  author?: string;
+  published?: string;
+  site?: string;
+  language?: string;
+  wordCount?: number;
+  image?: string;
+  // Stored file names (relative to the cache dir).
+  rawFile: string;
+  markdownFile?: string;
+  structureFile?: string;
+}
+
+// Per-request instruction from the host to the container, derived from the
+// resolved pipeline rule (per-type pipelines design section 4.4/4.5, plan M9).
+// Optional: absent = legacy behaviour (backwards compatible with pre-M9
+// containers).
+export interface PipelineInstruction {
+  retrieval: 'http' | 'browser';
+  parser: 'defuddle' | 'passthrough' | 'raw';
+  escalate: 'browser' | 'none';
+}
+
+// Request sent to the in-container service. The container is artefact-root-
+// agnostic, so no cache path is sent — the host writes the returned content.
+export interface ContainerFetchRequest {
+  url: string;
+  timeoutSeconds: number;
+  rawOnly: boolean;
+  validators?: { etag?: string; lastModified?: string };
+  // M9: instruction-driven protocol (design section 4.4). Absent = legacy
+  // behaviour, so a new host degrades cleanly against an old container.
+  instruction?: PipelineInstruction;
+}
+
+// Content the container returns for the host to write.
+export interface FetchContent {
+  ext: string;
+  raw: string; // base64-encoded raw bytes
+  markdown?: string;
+}
+
+export interface DocumentMeta {
+  title?: string;
+  description?: string;
+  author?: string;
+  published?: string;
+  site?: string;
+  language?: string;
+  wordCount?: number;
+  image?: string;
+}
+
+// Response shape mirrored from the container's FetchOutcome.
+export type ContainerFetchResponse =
+  | {
+      outcome: 'fetched';
+      status: number;
+      finalUrl: string;
+      contentType: string;
+      category: string;
+      etag?: string;
+      lastModified?: string;
+      meta: DocumentMeta;
+      sections: Section[];
+      content: FetchContent;
+    }
+  | { outcome: 'not-modified' }
+  | { outcome: 'cross-host-redirect'; fromUrl: string; toUrl: string }
+  | { outcome: 'http-error'; status: number }
+  | { outcome: 'timeout' }
+  | { outcome: 'fetch-failed'; reason: string };
+
+// Container transport injected into the dispatch surface (ServerDeps
+// pattern). @digest/docker provides the real implementation; shared never
+// depends on docker, so only this interface lives here.
+export interface ContainerTransport {
+  ensure(): Promise<{ baseUrl: string }>;
+  fetch(
+    baseUrl: string, req: ContainerFetchRequest,
+  ): Promise<ContainerFetchResponse>;
+}
+
+// Thrown by the transport when Docker / the image / the container is not
+// usable. Part of the transport contract (callers render it as a clean tool
+// error instead of crashing), hence defined here, not in @digest/docker.
+export class DockerUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DockerUnavailableError';
+  }
+}

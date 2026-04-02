@@ -1,0 +1,5 @@
+{
+  "url": "https://cloud.example/pricing",
+  "category": "tables",
+  "notes": "Pricing page with a GFM-representable table inside nav/footer boilerplate. Tests table fidelity (header + body row preservation)."
+}
