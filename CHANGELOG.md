@@ -7,10 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- Auto-publish GitHub Actions workflow (push to main bumps patch and publishes)
-
 ## [0.1.0] - 2026-04-03
 
 ### Added
