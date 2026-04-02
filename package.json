@@ -4,17 +4,45 @@
   "type": "module",
   "description": "Timeout-safe MCP server replacing Claude Code's built-in WebFetch",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "bin": {
     "webfetch-plus": "dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', '755')\"",
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mfassaie/webfetch-plus.git"
+  },
+  "homepage": "https://github.com/mfassaie/webfetch-plus",
+  "bugs": {
+    "url": "https://github.com/mfassaie/webfetch-plus/issues"
+  },
+  "author": "Mehdi Fassaie",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "webfetch",
+    "web-scraping",
+    "content-extraction",
+    "claude-code"
+  ],
   "engines": {
     "node": ">=22"
   },

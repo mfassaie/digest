@@ -32,3 +32,15 @@ export type ContentCategory =
   | 'text'
   | 'json'
   | 'binary';
+
+export interface CliArgs {
+  subcommand: 'install' | 'uninstall';
+  scope: 'project' | 'global';
+}
+
+export interface ConfigTarget {
+  mcpConfig: string;
+  settings: string;
+  localSettings: string;
+  settingsDir: string;
+}

@@ -25,7 +25,22 @@ defuddle, converts to Markdown, and saves both raw and converted files
 to a disk-based cache. The tool returns metadata and file paths only,
 never inline content. See ADR-003.
 
-### Request Flow
+### Entry Point Routing
+
+The binary (`index.ts`) is dual-mode (see ADR-005):
+- `webfetch-plus install [--scope project|global]` registers the MCP server
+- `webfetch-plus uninstall [--scope project|global]` removes the registration
+- `webfetch-plus --help` / `--version` prints info and exits
+- No args: starts the MCP server on stdio (backwards compatible)
+
+### Install/Uninstall Flow
+
+1. Parse subcommand and --scope from process.argv
+2. Resolve config file paths (project scope: cwd, global scope: ~/.claude)
+3. For install: create/merge .mcp.json, .claude/settings.json, .claude/settings.local.json
+4. For uninstall: remove entries, clean up empty files and directories
+
+### MCP Server Request Flow
 
 1. Receive tool call with `url`, `prompt` (optional), `timeout_seconds`
 2. Normalise URL (HTTP to HTTPS upgrade)
@@ -49,13 +64,18 @@ never inline content. See ADR-003.
 
 ```
 src/
-  index.ts              # MCP server entry point
+  index.ts              # Dual-mode entry point: CLI subcommands or MCP server
   server.ts             # Server setup, tool registration
   fetcher.ts            # Fetch with timeout, redirect handling, HTTPS upgrade
   converter.ts          # Content-type branching, defuddle extraction
   cache.ts              # Disk cache read/write, conditional validation
   response.ts           # Format tool responses (metadata + paths)
-  types.ts              # Shared types
+  cli.ts                # CLI arg parsing and usage output
+  cli-install.ts        # Install: create/merge MCP config, hook, permissions
+  cli-uninstall.ts      # Uninstall: remove entries, clean up empty files
+  cli-config.ts         # Config file path resolution (project vs global scope)
+  cli-json.ts           # JSON file read/write/merge utilities
+  types.ts              # Shared types (server + CLI)
 ```
 
 ## Cache Architecture

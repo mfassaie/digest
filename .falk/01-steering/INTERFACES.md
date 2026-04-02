@@ -52,6 +52,28 @@ Redirect detected (cross-host):
 Make a new request with the redirect URL to fetch the content.
 ```
 
+## CLI Interface
+
+### install / uninstall
+
+```
+webfetch-plus install [--scope project|global]
+webfetch-plus uninstall [--scope project|global]
+webfetch-plus --help
+webfetch-plus --version
+```
+
+| Argument | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| subcommand | string | no | (none = MCP server) | "install" or "uninstall" |
+| --scope | string | no | "project" | "project" or "global" |
+
+**Project scope** writes to: cwd/.mcp.json, cwd/.claude/settings.json, cwd/.claude/settings.local.json
+
+**Global scope** writes to: ~/.claude.json, ~/.claude/settings.json, ~/.claude/settings.local.json
+
+Exit codes: 0 (success), 1 (error)
+
 ## External APIs
 
 None for MVP. Haiku summarisation deferred (ADR-001).

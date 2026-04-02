@@ -23,6 +23,8 @@ Web content fetching and transformation for AI agent consumption.
 | FetchResult  | Status, content-type, headers, body (raw bytes).                     |
 | CacheEntry   | Directory on disk containing raw file, markdown file, and meta.json. |
 | CacheMeta    | ETag, Last-Modified, content-type, url, fetchedAt.                   |
+| CliArgs      | Parsed subcommand (install/uninstall) and scope (project/global).    |
+| ConfigTarget | Resolved file paths for MCP config, settings, and local settings.    |
 
 ## Bounded Contexts
 

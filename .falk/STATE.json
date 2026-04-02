@@ -1,0 +1,25 @@
+{
+  "activeStage": "Verify",
+  "activeFeature": "public-release",
+  "verify": {
+    "gate": "VERIFIED",
+    "timestamp": "2026-04-03"
+  },
+  "features": {
+    "webfetch-plus-mvp": {
+      "stage": "Verify",
+      "status": "VERIFIED",
+      "completedAt": "2026-04-02"
+    },
+    "deployment": {
+      "stage": "Verify",
+      "status": "VERIFIED",
+      "completedAt": "2026-04-03"
+    },
+    "public-release": {
+      "stage": "Verify",
+      "status": "VERIFIED",
+      "completedAt": "2026-04-03"
+    }
+  }
+}
