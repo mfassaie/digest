@@ -1,6 +1,6 @@
 {
   "activeStage": "Verify",
-  "activeFeature": "public-release",
+  "activeFeature": "auto-publish",
   "verify": {
     "gate": "VERIFIED",
     "timestamp": "2026-04-03"
@@ -17,6 +17,11 @@
       "completedAt": "2026-04-03"
     },
     "public-release": {
+      "stage": "Verify",
+      "status": "VERIFIED",
+      "completedAt": "2026-04-03"
+    },
+    "auto-publish": {
       "stage": "Verify",
       "status": "VERIFIED",
       "completedAt": "2026-04-03"
