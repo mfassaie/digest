@@ -1,0 +1,10 @@
+CLAUDE.md
+.claude/settings.json
+.claude/settings.local.json
+.mcp.json
+.mcp.json.tmp
+webfetch-plus.code-workspace
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
