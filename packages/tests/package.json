@@ -5,13 +5,14 @@
   "type": "module",
   "description": "Repo test tooling: integration scripts and the converter eval harness",
   "scripts": {
-    "all": "tsx tooling-evals/src/run-all.ts",
-    "score": "tsx tooling-evals/src/run-all.ts --score-only",
-    "real": "tsx tooling-evals/src/run-real.ts",
-    "capture": "tsx integration/capture-and-review.ts",
+    "test": "tsx integration/verify-dev.ts && tsx integration/verify-docroot.ts && tsx integration/e2e-host.ts",
     "e2e": "tsx integration/e2e-host.ts",
-    "verify:docroot": "tsx integration/verify-docroot.ts",
     "verify:dev": "tsx integration/verify-dev.ts",
+    "verify:docroot": "tsx integration/verify-docroot.ts",
+    "capture": "tsx integration/capture-and-review.ts",
+    "tooling-evals": "tsx tooling-evals/src/run-all.ts",
+    "tooling-evals:score": "tsx tooling-evals/src/run-all.ts --score-only",
+    "tooling-evals:real": "tsx tooling-evals/src/run-real.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
