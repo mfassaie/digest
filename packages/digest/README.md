@@ -107,7 +107,7 @@ Reads a previously fetched document from the cache. No network.
 | mode | enum | sections | `summary` \| `sections` \| `keywords` \| `full`. |
 | section | string | – | With `mode=sections`, return one section by slug or title. |
 
-A typical loop: `get` a URL (see the outline cheaply), then `read` a summary
+A typical loop: `fetch` a URL (see the outline cheaply), then `read` a summary
 or a specific section. `full` returns the whole document and is opt-in.
 
 ## Configuration
