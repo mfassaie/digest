@@ -1,6 +1,6 @@
 # ADR-006: HTML-to-Markdown converter choice
 
-- Status: Provisional (pending real-corpus validation in Phase B)
+- Status: Accepted (confirmed on a real-captured corpus, 2026-06-10)
 - Date: 2026-06-10
 - Supersedes: implicit v1 choice of defuddle
 
@@ -92,6 +92,30 @@ boilerplate — is answered by the Phase B real-corpus eval.
 flagged in research). defuddle (incumbent, highest precision, mature) is the
 recommended conservative fallback and remains the safe default if we ship
 before real-corpus validation.
+
+## Real-corpus confirmation (2026-06-10)
+
+7 real pages were captured as rendered HTML through the live container
+(MDN ×2, Wikipedia, Kubernetes docs, Python docs, a JS SPA, a blog) and
+scored golden-free on the open question — boilerplate leakage — plus
+heading structure and content retention (Readability as a neutral size
+reference). Full table in `eval/RESULTS-real.md`.
+
+| Converter | Score | Leak/1k | Retention | Note |
+|---|---|---|---|---|
+| **defuddle** | **80** | **0.4** | 1.24 | rank 1; lowest leakage |
+| readability+rehype | 79 | 0.5 | 1.46 | |
+| readability+turndown | 79 | 0.5 | 1.40 | |
+| mdream | 58 | 1.8 | 1.74 | ~4.5× more leakage; **errored on the blog** |
+| turndown-raw (baseline) | 56 | 0.9 | 6.35 | keeps everything |
+| rehype-raw (baseline) | 39 | 1.6 | 5.04 | keeps everything |
+
+The synthetic eval's mdream lead was an artefact of perf/image weighting and
+light synthetic boilerplate. On real pages the predicted precision gap
+materialised: **defuddle leaks ~4.5× less boilerplate than mdream** and was
+the only extractor with zero failures (mdream threw on the blog page). On
+the SPA, defuddle stripped the login/footer chrome (leak 0.0) where mdream
+kept it (leak 7.6). Decision **confirmed: defuddle**.
 
 ## Consequences
 

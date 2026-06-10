@@ -57,3 +57,18 @@ The wrapper code we author is MIT; only the base binary is restricted.
   with v1 plain fetch), `raw_only`, and binary download, all writing to the
   mapped volume.
 - amd64-only base image; Apple Silicon runs under emulation (documented).
+
+## Known limitation: pre-flight bypasses stealth
+
+The orchestrator does a pre-flight request (Playwright `APIRequestContext`)
+to resolve redirects, validators (ETag/304) and content-type before
+deciding whether to render. That request is a plain HTTP call — it does
+**not** carry CloakBrowser's browser-level stealth (TLS/JS fingerprint).
+Real-corpus testing (2026-06-10) found Stack Overflow returns **HTTP 402**
+to it, so a bot-protected page can be rejected at pre-flight even though a
+full stealth navigation might have succeeded.
+
+Follow-up (not yet done): for the initial hop, navigate HTML with the
+stealth browser (`page.goto`) and derive status/content-type/redirect from
+the navigation response, reserving the plain request for conditional
+revalidation of already-cached resources. Tracked as a task.
