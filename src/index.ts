@@ -8,6 +8,8 @@ import {
 } from './cli-config.js';
 import { install } from './cli-install.js';
 import { uninstall } from './cli-uninstall.js';
+import { setup } from './cli-setup.js';
+import { doctor } from './cli-doctor.js';
 import { main } from './server.js';
 
 const sub = process.argv[2];
@@ -18,9 +20,14 @@ if (sub === '--help') {
 } else if (sub === '--version') {
   printVersion();
   process.exit(0);
+} else if (sub === 'setup') {
+  setup().then((code) => process.exit(code));
+} else if (sub === 'doctor') {
+  doctor().then((code) => process.exit(code));
 } else if (sub === 'install' || sub === 'uninstall') {
   const args = parseArgs(process.argv);
-  if (!args) {
+  if (!args || (args.subcommand !== 'install'
+    && args.subcommand !== 'uninstall')) {
     printUsage();
     process.exit(1);
   }
@@ -68,7 +75,8 @@ async function runCli(
     const log = await install(target);
     log.forEach(l => console.log(l));
     console.log(
-      '\nDone. Restart Claude Code to activate.',
+      '\nDone. If you have not already, run `falk-document setup` to ' +
+      'build the Docker image, then restart Claude Code to activate.',
     );
   } else {
     console.log(

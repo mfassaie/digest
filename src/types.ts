@@ -63,6 +63,8 @@ export type ContainerFetchResponse =
       finalUrl: string;
       contentType: string;
       category: string;
+      etag?: string;
+      lastModified?: string;
       meta: DocumentMeta;
       sections: Section[];
       files: { raw: string; markdown?: string; structure?: string };

@@ -1,8 +1,8 @@
 {
-  "name": "webfetch-plus",
-  "version": "0.1.6",
+  "name": "falk-document",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Timeout-safe MCP server replacing Claude Code's built-in WebFetch",
+  "description": "MCP server that fetches web pages via a headless browser (CloakBrowser in Docker) and serves structured Markdown: summary, sections, keywords or full text",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -12,10 +12,11 @@
     }
   },
   "bin": {
-    "webfetch-plus": "dist/index.js"
+    "falk-document": "dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "docker"
   ],
   "scripts": {
     "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', '755')\"",
@@ -41,6 +42,7 @@
     "webfetch",
     "web-scraping",
     "content-extraction",
+    "headless-browser",
     "claude-code"
   ],
   "packageManager": "pnpm@10.33.0",
@@ -50,8 +52,6 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "defuddle": "^0.15.0",
-    "linkedom": "^0.18.12",
     "zod": "^4.3.6"
   },
   "devDependencies": {

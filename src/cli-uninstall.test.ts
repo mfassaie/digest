@@ -6,7 +6,17 @@ import {
 } from './cli-uninstall.js';
 
 describe('removeMcpServer', () => {
-  it('removes mcpServers key when only webfetch-plus present', () => {
+  it('removes mcpServers key when only falk-document present', () => {
+    const config = {
+      mcpServers: {
+        'falk-document': { command: 'node', args: ['dist/index.js'] },
+      },
+    };
+    const result = removeMcpServer(config);
+    expect(result).not.toHaveProperty('mcpServers');
+  });
+
+  it('removes legacy webfetch-plus key as well', () => {
     const config = {
       mcpServers: {
         'webfetch-plus': { command: 'node', args: ['dist/index.js'] },
@@ -16,10 +26,11 @@ describe('removeMcpServer', () => {
     expect(result).not.toHaveProperty('mcpServers');
   });
 
-  it('removes only webfetch-plus, preserves other servers', () => {
+  it('removes falk-document and legacy, preserves other servers', () => {
     const config = {
       mcpServers: {
-        'webfetch-plus': { command: 'node', args: ['dist/index.js'] },
+        'falk-document': { command: 'node', args: ['dist/index.js'] },
+        'webfetch-plus': { command: 'node', args: ['dist/old.js'] },
         'other-server': { command: 'python', args: ['server.py'] },
       },
     };
@@ -38,7 +49,7 @@ describe('removeMcpServer', () => {
   it('does not mutate the original config', () => {
     const config = {
       mcpServers: {
-        'webfetch-plus': { command: 'node' },
+        'falk-document': { command: 'node' },
         'other': { command: 'python' },
       },
     };
@@ -114,7 +125,21 @@ describe('removePreToolUseHook', () => {
 });
 
 describe('removePermissions', () => {
-  it('removes permissions key when only webfetch-plus entries', () => {
+  it('removes permissions key when only falk-document entries', () => {
+    const config = {
+      permissions: {
+        deny: ['WebFetch'],
+        allow: [
+          'mcp__falk-document__falk_document_get',
+          'mcp__falk-document__falk_document_read',
+        ],
+      },
+    };
+    const result = removePermissions(config);
+    expect(result).not.toHaveProperty('permissions');
+  });
+
+  it('removes legacy webfetch-plus allow rule too', () => {
     const config = {
       permissions: {
         deny: ['WebFetch'],
@@ -125,12 +150,13 @@ describe('removePermissions', () => {
     expect(result).not.toHaveProperty('permissions');
   });
 
-  it('removes only webfetch-plus entries, preserves others', () => {
+  it('removes only falk-document entries, preserves others', () => {
     const config = {
       permissions: {
         deny: ['WebFetch', 'Bash'],
         allow: [
-          'mcp__webfetch-plus__webfetch_plus',
+          'mcp__falk-document__falk_document_get',
+          'mcp__falk-document__falk_document_read',
           'Read',
         ],
       },
@@ -147,7 +173,8 @@ describe('removePermissions', () => {
       permissions: {
         deny: ['WebFetch'],
         allow: [
-          'mcp__webfetch-plus__webfetch_plus',
+          'mcp__falk-document__falk_document_get',
+          'mcp__falk-document__falk_document_read',
           'Read',
         ],
       },
@@ -162,7 +189,10 @@ describe('removePermissions', () => {
     const config = {
       permissions: {
         deny: ['WebFetch', 'Bash'],
-        allow: ['mcp__webfetch-plus__webfetch_plus'],
+        allow: [
+          'mcp__falk-document__falk_document_get',
+          'mcp__falk-document__falk_document_read',
+        ],
       },
     };
     const result = removePermissions(config);
@@ -181,7 +211,10 @@ describe('removePermissions', () => {
     const config = {
       permissions: {
         deny: ['WebFetch', 'Bash'],
-        allow: ['mcp__webfetch-plus__webfetch_plus'],
+        allow: [
+          'mcp__falk-document__falk_document_get',
+          'mcp__falk-document__falk_document_read',
+        ],
       },
     };
     const original = JSON.parse(JSON.stringify(config));

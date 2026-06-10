@@ -104,7 +104,9 @@ describe('printUsage', () => {
     printUsage();
     expect(spy).toHaveBeenCalledOnce();
     const output = spy.mock.calls[0][0] as string;
-    expect(output).toContain('Usage: webfetch-plus');
+    expect(output).toContain('Usage: falk-document');
+    expect(output).toContain('setup');
+    expect(output).toContain('doctor');
     expect(output).toContain('install');
     expect(output).toContain('uninstall');
     expect(output).toContain('--help');
@@ -124,24 +126,15 @@ describe('printVersion', () => {
     spy.mockRestore();
   });
 
-  it('uses npm_package_version when set', () => {
+  it('reads the version from package.json, ignoring env vars', () => {
     const spy = vi.spyOn(console, 'log')
       .mockImplementation(() => {});
     const prev = process.env.npm_package_version;
     process.env.npm_package_version = '2.5.0';
     printVersion();
-    expect(spy.mock.calls[0][0]).toBe('2.5.0');
-    process.env.npm_package_version = prev;
-    spy.mockRestore();
-  });
-
-  it('falls back to 0.1.0 when env var is unset', () => {
-    const spy = vi.spyOn(console, 'log')
-      .mockImplementation(() => {});
-    const prev = process.env.npm_package_version;
-    delete process.env.npm_package_version;
-    printVersion();
-    expect(spy.mock.calls[0][0]).toBe('0.1.0');
+    // Now sourced from package.json at runtime, not the env var.
+    expect(spy.mock.calls[0][0]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(spy.mock.calls[0][0]).not.toBe('2.5.0');
     process.env.npm_package_version = prev;
     spy.mockRestore();
   });

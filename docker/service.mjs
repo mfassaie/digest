@@ -219,6 +219,8 @@ async function preflight(engine2, input, timeoutMs) {
       status: res.status,
       finalUrl: currentUrl,
       contentType: res.headers["content-type"] ?? "",
+      etag: res.headers["etag"],
+      lastModified: res.headers["last-modified"],
       body: await res.body()
     };
   }
@@ -264,6 +266,8 @@ async function orchestrateFetch(engine2, dataRoot, input) {
       finalUrl,
       contentType,
       category,
+      etag: pre.etag,
+      lastModified: pre.lastModified,
       meta: {},
       sections: [],
       files: { raw: rawName2 },
@@ -298,6 +302,8 @@ async function orchestrateFetch(engine2, dataRoot, input) {
     finalUrl,
     contentType,
     category,
+    etag: pre.etag,
+    lastModified: pre.lastModified,
     meta,
     sections,
     files: { raw: rawName, markdown: mdName, structure: structName },

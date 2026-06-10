@@ -1,10 +1,13 @@
 import type { CliArgs } from './types.js';
+import { getVersion } from './version.js';
+
+const SUBCOMMANDS = ['install', 'uninstall', 'setup', 'doctor'] as const;
 
 export function parseArgs(
   argv: string[],
 ): CliArgs | null {
   const sub = argv[2];
-  if (sub !== 'install' && sub !== 'uninstall') {
+  if (!(SUBCOMMANDS as readonly string[]).includes(sub)) {
     return null;
   }
 
@@ -17,13 +20,15 @@ export function parseArgs(
     }
   }
 
-  return { subcommand: sub, scope };
+  return { subcommand: sub as CliArgs['subcommand'], scope };
 }
 
 export function printUsage(): void {
-  const msg = `Usage: webfetch-plus [command]
+  const msg = `Usage: falk-document [command]
 
 Commands:
+  setup                               Build the local Docker image
+  doctor                              Check Docker, image and cache
   install [--scope project|global]    Register MCP server
   uninstall [--scope project|global]  Remove MCP server
 
@@ -36,6 +41,5 @@ With no command, starts the MCP server on stdio.`;
 }
 
 export function printVersion(): void {
-  const pkg = process.env.npm_package_version ?? '0.1.0';
-  console.log(pkg);
+  console.log(getVersion());
 }

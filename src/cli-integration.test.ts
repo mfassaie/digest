@@ -47,7 +47,7 @@ describe('install end-to-end', () => {
     const mcp = JSON.parse(
       await readFile(target.mcpConfig, 'utf8'),
     );
-    expect(mcp.mcpServers['webfetch-plus']).toEqual(
+    expect(mcp.mcpServers['falk-document']).toEqual(
       buildMcpEntry(),
     );
 
@@ -69,7 +69,8 @@ describe('install end-to-end', () => {
     );
     expect(local.permissions.deny).toEqual(['WebFetch']);
     expect(local.permissions.allow).toEqual([
-      'mcp__webfetch-plus__webfetch_plus',
+      'mcp__falk-document__falk_document_get',
+      'mcp__falk-document__falk_document_read',
     ]);
   });
 
@@ -105,7 +106,7 @@ describe('install end-to-end', () => {
       command: 'node',
       args: ['other.js'],
     });
-    expect(mcp.mcpServers['webfetch-plus']).toEqual(
+    expect(mcp.mcpServers['falk-document']).toEqual(
       buildMcpEntry(),
     );
   });
@@ -228,7 +229,7 @@ describe('uninstall integration (project scope)', () => {
     });
     expect(
       (mcpAfter.mcpServers as Record<string, unknown>)[
-        'webfetch-plus'
+        'falk-document'
       ],
     ).toBeUndefined();
 

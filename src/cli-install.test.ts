@@ -28,9 +28,9 @@ describe('buildHookCommand', () => {
     expect(command).toContain('deny');
   });
 
-  it('references mcp__webfetch-plus__webfetch_plus in denial reason', () => {
+  it('references mcp__falk-document__falk_document_get in denial reason', () => {
     expect(command).toContain(
-      'mcp__webfetch-plus__webfetch_plus',
+      'mcp__falk-document__falk_document_get',
     );
   });
 
@@ -62,7 +62,7 @@ describe('buildHookCommand', () => {
       }
     ).hookSpecificOutput.permissionDecisionReason;
     expect(reason).toContain(
-      'mcp__webfetch-plus__webfetch_plus',
+      'mcp__falk-document__falk_document_get',
     );
   });
 });
@@ -71,7 +71,7 @@ describe('addMcpServer', () => {
   it('adds mcpServers to empty config', () => {
     const result = addMcpServer({});
     expect(result).toEqual({
-      mcpServers: { 'webfetch-plus': MCP_ENTRY },
+      mcpServers: { 'falk-document': MCP_ENTRY },
     });
   });
 
@@ -84,22 +84,20 @@ describe('addMcpServer', () => {
     const result = addMcpServer(config);
     expect(result.mcpServers).toEqual({
       'other-server': { command: 'other', args: [] },
-      'webfetch-plus': MCP_ENTRY,
+      'falk-document': MCP_ENTRY,
     });
   });
 
-  it('overwrites existing webfetch-plus entry', () => {
+  it('removes legacy webfetch-plus and writes falk-document entry', () => {
     const config = {
       mcpServers: {
         'webfetch-plus': { command: 'old', args: ['--old'] },
       },
     };
     const result = addMcpServer(config);
-    expect(
-      (result.mcpServers as Record<string, unknown>)[
-        'webfetch-plus'
-      ],
-    ).toEqual(MCP_ENTRY);
+    const servers = result.mcpServers as Record<string, unknown>;
+    expect(servers['webfetch-plus']).toBeUndefined();
+    expect(servers['falk-document']).toEqual(MCP_ENTRY);
   });
 
   it('is idempotent (running twice produces same result)', () => {
@@ -192,7 +190,10 @@ describe('addPermissions', () => {
     const result = addPermissions({});
     expect(result.permissions).toEqual({
       deny: ['WebFetch'],
-      allow: ['mcp__webfetch-plus__webfetch_plus'],
+      allow: [
+        'mcp__falk-document__falk_document_get',
+        'mcp__falk-document__falk_document_read',
+      ],
     });
   });
 
@@ -208,7 +209,8 @@ describe('addPermissions', () => {
     expect(perms.deny).toEqual(['SomeTool', 'WebFetch']);
     expect(perms.allow).toEqual([
       'OtherTool',
-      'mcp__webfetch-plus__webfetch_plus',
+      'mcp__falk-document__falk_document_get',
+      'mcp__falk-document__falk_document_read',
     ]);
   });
 
@@ -218,7 +220,8 @@ describe('addPermissions', () => {
     const perms = second.permissions as Record<string, unknown>;
     expect(perms.deny).toEqual(['WebFetch']);
     expect(perms.allow).toEqual([
-      'mcp__webfetch-plus__webfetch_plus',
+      'mcp__falk-document__falk_document_get',
+      'mcp__falk-document__falk_document_read',
     ]);
   });
 
@@ -231,7 +234,8 @@ describe('addPermissions', () => {
     expect(perms.scope).toBe('project');
     expect(perms.deny).toEqual(['WebFetch']);
     expect(perms.allow).toEqual([
-      'mcp__webfetch-plus__webfetch_plus',
+      'mcp__falk-document__falk_document_get',
+      'mcp__falk-document__falk_document_read',
     ]);
   });
 

@@ -11,12 +11,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
         version: 1.29.0(zod@4.3.6)
-      defuddle:
-        specifier: ^0.15.0
-        version: 0.15.0
-      linkedom:
-        specifier: ^0.18.12
-        version: 0.18.12
       zod:
         specifier: ^4.3.6
         version: 4.3.6

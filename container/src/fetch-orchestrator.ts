@@ -25,6 +25,8 @@ export type FetchOutcome =
       finalUrl: string;
       contentType: string;
       category: string;
+      etag?: string;
+      lastModified?: string;
       meta: DocumentMeta;
       sections: Section[];
       files: { raw: string; markdown?: string; structure?: string };
@@ -48,6 +50,8 @@ interface Preflight {
   status?: number;
   finalUrl?: string;
   contentType?: string;
+  etag?: string;
+  lastModified?: string;
   body?: Buffer;
   fromUrl?: string;
   toUrl?: string;
@@ -79,6 +83,8 @@ async function preflight(
       status: res.status,
       finalUrl: currentUrl,
       contentType: res.headers['content-type'] ?? '',
+      etag: res.headers['etag'],
+      lastModified: res.headers['last-modified'],
       body: await res.body(),
     };
   }
@@ -135,6 +141,8 @@ export async function orchestrateFetch(
       finalUrl,
       contentType,
       category,
+      etag: pre.etag,
+      lastModified: pre.lastModified,
       meta: {},
       sections: [],
       files: { raw: rawName },
@@ -173,6 +181,8 @@ export async function orchestrateFetch(
     finalUrl,
     contentType,
     category,
+    etag: pre.etag,
+    lastModified: pre.lastModified,
     meta,
     sections,
     files: { raw: rawName, markdown: mdName, structure: structName },
