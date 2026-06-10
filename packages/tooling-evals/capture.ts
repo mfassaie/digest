@@ -1,22 +1,22 @@
 // Real-world e2e: drive the production host handlers (fetch /
 // _read) against real sites through the live container, capture rendered
 // HTML as eval fixtures, and dump get/read output for review.
-// Run: npx tsx packages/tests/integration/capture-and-review.ts
+// Run: npx tsx packages/tooling-evals/capture.ts
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from
   'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { handleGet, handleRead } from '../../digest/src/server.js';
-import { realRunner, ensureContainer, CONTAINER } from '../../digest/src/docker.js';
-import { containerFetch } from '../../digest/src/container-client.js';
-import { getCacheDir } from '../../digest/src/cache.js';
-import { extractiveEngine } from '../../digest/src/read-engine.js';
+import { handleGet, handleRead } from '../digest/src/server.js';
+import { realRunner, ensureContainer, CONTAINER } from '../digest/src/docker.js';
+import { containerFetch } from '../digest/src/container-client.js';
+import { getCacheDir } from '../digest/src/cache.js';
+import { extractiveEngine } from '../digest/src/read-engine.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixturesDir = join(here, '..', 'tooling-evals', 'fixtures');
-const reviewPath = join(here, '..', 'tooling-evals', 'REAL-E2E-REVIEW.md');
+const fixturesDir = join(here, 'fixtures');
+const reviewPath = join(here, 'REAL-E2E-REVIEW.md');
 
 interface Site {
   id: string;

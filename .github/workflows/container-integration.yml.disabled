@@ -34,4 +34,4 @@ jobs:
         run: pnpm build
 
       - name: Run end-to-end against the live container
-        run: pnpm dlx tsx packages/tests/integration/e2e-host.ts
+        run: pnpm dlx tsx packages/e2e/e2e-host.ts

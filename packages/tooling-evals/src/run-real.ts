@@ -53,7 +53,7 @@ function clamp01(x: number): number { return Math.max(0, Math.min(1, x)); }
 async function main(): Promise<void> {
   const ids = allFixtureIds().filter((id) => id.startsWith('real-'));
   if (ids.length === 0) {
-    throw new Error('no real-* fixtures; run packages/tests/integration/capture-and-review.ts');
+    throw new Error('no real-* fixtures; run `pnpm --filter @digest/tooling-evals run capture`');
   }
   const fixtures = ids.map(loadFixture);
   // Readability reference token count per fixture (neutral size oracle).

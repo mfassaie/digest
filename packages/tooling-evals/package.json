@@ -1,18 +1,14 @@
 {
-  "name": "@digest/tests",
+  "name": "@digest/tooling-evals",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Repo test tooling: integration scripts and the converter eval harness",
+  "description": "HTML-to-Markdown converter eval harness for digest",
   "scripts": {
-    "test": "tsx integration/verify-dev.ts",
-    "e2e": "tsx integration/e2e-host.ts",
-    "verify:dev": "tsx integration/verify-dev.ts",
-    "verify:docroot": "tsx integration/verify-docroot.ts",
-    "capture": "tsx integration/capture-and-review.ts",
-    "tooling-evals": "tsx tooling-evals/src/run-all.ts",
-    "tooling-evals:score": "tsx tooling-evals/src/run-all.ts --score-only",
-    "tooling-evals:real": "tsx tooling-evals/src/run-real.ts",
+    "all": "tsx src/run-all.ts",
+    "score": "tsx src/run-all.ts --score-only",
+    "real": "tsx src/run-real.ts",
+    "capture": "tsx capture.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

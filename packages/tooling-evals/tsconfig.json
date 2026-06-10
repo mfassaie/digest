@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["tooling-evals/src"]
+  "include": ["src"]
 }

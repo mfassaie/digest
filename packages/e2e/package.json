@@ -1,0 +1,17 @@
+{
+  "name": "@digest/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests: drive the built host handlers against a live digest:local container",
+  "scripts": {
+    "test": "tsx verify-dev.ts",
+    "e2e": "tsx e2e-host.ts",
+    "verify:dev": "tsx verify-dev.ts",
+    "verify:docroot": "tsx verify-docroot.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsx": "^4.19.2"
+  }
+}

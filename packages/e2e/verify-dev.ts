@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 // The digest host package (its src/ + dist/) lives under packages/digest.
-const pkg = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'digest');
+const pkg = join(dirname(fileURLToPath(import.meta.url)), '..', 'digest');
 const bin = join(pkg, 'dist', 'index.js');
 
 const child = spawn(process.execPath, [bin], {
