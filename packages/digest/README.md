@@ -170,8 +170,9 @@ pnpm test
 
 This is a pnpm workspace (see the [repo root README](../../README.md)):
 `packages/digest` is the published MCP server (`@mfassaie/digest`),
-`packages/fetch-service` is the in-image service, and `packages/eval` is the
-converter eval harness (`pnpm --filter @digest/eval run all`).
+`packages/fetch-service` is the in-image service, and `packages/tests` holds
+the integration scripts (`integration/`) and the converter eval harness
+(`tooling-evals/`, run via `pnpm --filter @digest/tests run all`).
 
 ## Licence
 

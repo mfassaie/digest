@@ -2,14 +2,14 @@
 // Builds nothing; assumes `digest:local` image exists. Starts the
 // container via the real docker lifecycle, runs fetch and
 // read against live URLs, prints results. Not a unit test —
-// run manually: `node --import tsx scripts/e2e-host.ts`.
+// run manually: `node --import tsx packages/tests/integration/e2e-host.ts`.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { handleGet, handleRead } from '../packages/digest/src/server.js';
-import { realRunner, ensureContainer, CONTAINER } from '../packages/digest/src/docker.js';
-import { containerFetch } from '../packages/digest/src/container-client.js';
-import { extractiveEngine } from '../packages/digest/src/read-engine.js';
+import { handleGet, handleRead } from '../../digest/src/server.js';
+import { realRunner, ensureContainer, CONTAINER } from '../../digest/src/docker.js';
+import { containerFetch } from '../../digest/src/container-client.js';
+import { extractiveEngine } from '../../digest/src/read-engine.js';
 
 const cacheRoot = mkdtempSync(join(tmpdir(), 'falk-e2e-'));
 const deps = {

@@ -17,7 +17,7 @@ This is a pnpm workspace:
 |---------|---------|
 | [`packages/digest`](packages/digest) | `@mfassaie/digest` — the host MCP server (published) and the Docker build context. |
 | [`packages/fetch-service`](packages/fetch-service) | `@digest/fetch-service` — the in-image fetch/convert service, bundled into the image. |
-| [`packages/eval`](packages/eval) | `@digest/eval` — the HTML-to-Markdown converter eval harness (defuddle chosen, ADR-006). |
+| [`packages/tests`](packages/tests) | `@digest/tests` — repo test tooling: integration scripts (`integration/`) and the HTML-to-Markdown converter eval harness (`tooling-evals/`, defuddle chosen, ADR-006). |
 
 ```sh
 pnpm install

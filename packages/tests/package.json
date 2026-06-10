@@ -1,13 +1,17 @@
 {
-  "name": "@digest/eval",
+  "name": "@digest/tests",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "HTML-to-Markdown converter eval harness for digest v2",
+  "description": "Repo test tooling: integration scripts and the converter eval harness",
   "scripts": {
-    "all": "tsx src/run-all.ts",
-    "capture": "tsx src/capture.ts",
-    "score": "tsx src/run-all.ts --score-only",
+    "all": "tsx tooling-evals/src/run-all.ts",
+    "score": "tsx tooling-evals/src/run-all.ts --score-only",
+    "real": "tsx tooling-evals/src/run-real.ts",
+    "capture": "tsx integration/capture-and-review.ts",
+    "e2e": "tsx integration/e2e-host.ts",
+    "verify:docroot": "tsx integration/verify-docroot.ts",
+    "verify:dev": "tsx integration/verify-dev.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
