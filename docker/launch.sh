@@ -8,4 +8,4 @@ set -euo pipefail
 
 cloakserve &
 
-exec node /app/falk/service.mjs
+exec node /app/digest/service.mjs

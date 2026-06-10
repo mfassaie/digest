@@ -370,7 +370,7 @@ async function convertWrite(dir, a) {
 var SERVICE_PORT = Number(process.env.SERVICE_PORT ?? 8932);
 var CDP_URL = process.env.CDP_URL ?? "http://127.0.0.1:9222";
 var DATA_ROOT = process.env.DATA_ROOT ?? "/data";
-var VERSION = process.env.FALK_VERSION ?? "0.2.0";
+var VERSION = process.env.DIGEST_VERSION ?? "0.2.0";
 var engine = new CdpEngine(CDP_URL);
 function sendJson(res, status, body) {
   const payload = JSON.stringify(body);
@@ -447,7 +447,7 @@ var server = createServer((req, res) => {
 });
 server.listen(SERVICE_PORT, () => {
   process.stderr.write(
-    `falk-document service on :${SERVICE_PORT}, CDP ${CDP_URL}
+    `digest service on :${SERVICE_PORT}, CDP ${CDP_URL}
 `
   );
 });

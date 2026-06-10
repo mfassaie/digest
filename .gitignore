@@ -3,7 +3,7 @@ CLAUDE.md
 .claude/settings.local.json
 .mcp.json
 .mcp.json.tmp
-webfetch-plus.code-workspace
+digest.code-workspace
 node_modules/
 dist/
 coverage/

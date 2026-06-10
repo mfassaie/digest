@@ -1,5 +1,5 @@
 {
-  "name": "falk-document-container-runtime",
+  "name": "digest-container-runtime",
   "version": "0.0.0",
   "private": true,
   "type": "commonjs",

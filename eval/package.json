@@ -1,9 +1,9 @@
 {
-  "name": "@falk-document/eval",
+  "name": "@digest/eval",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "HTML-to-Markdown converter eval harness for falk-document v2",
+  "description": "HTML-to-Markdown converter eval harness for digest v2",
   "scripts": {
     "all": "tsx src/run-all.ts",
     "capture": "tsx src/capture.ts",

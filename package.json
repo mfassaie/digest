@@ -1,5 +1,5 @@
 {
-  "name": "falk-document",
+  "name": "@mfassaie/digest",
   "version": "0.2.0",
   "type": "module",
   "description": "MCP server that fetches web pages via a headless browser (CloakBrowser in Docker) and serves structured Markdown: summary, sections, keywords or full text",
@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "falk-document": "dist/index.js"
+    "digest": "dist/index.js"
   },
   "files": [
     "dist",
@@ -29,11 +29,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mfassaie/webfetch-plus.git"
+    "url": "git+https://github.com/mfassaie/digest.git"
   },
-  "homepage": "https://github.com/mfassaie/webfetch-plus",
+  "homepage": "https://github.com/mfassaie/digest",
   "bugs": {
-    "url": "https://github.com/mfassaie/webfetch-plus/issues"
+    "url": "https://github.com/mfassaie/digest/issues"
   },
   "author": "Mehdi Fassaie",
   "keywords": [

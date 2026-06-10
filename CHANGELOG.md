@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.2.0] - 2026-06-10
 
-Renamed from `webfetch-plus` to `falk-document`. This is a substantial
+Renamed from `webfetch-plus` to `digest`. This is a substantial
 re-architecture: fetching now runs through a real headless browser in
 Docker, and the single tool is replaced by a get/read pair.
 
@@ -17,9 +17,9 @@ Docker, and the single tool is replaced by a get/read pair.
 
 - Headless-browser fetch engine: CloakBrowser (stealth Chromium) in a
   local Docker image, so JavaScript-rendered pages are captured (ADR-007).
-- `falk_document_get` — fetch via browser, convert HTML to Markdown, return
+- `fetch` — fetch via browser, convert HTML to Markdown, return
   metadata, file paths and a section outline (never inline body).
-- `falk_document_read` — read a cached document as `summary`, `sections`
+- `read` — read a cached document as `summary`, `sections`
   (or one named section), `keywords`, or `full` (ADR-008).
 - Local extractive read engine (summary + keywords, no LLM) behind a
   pluggable interface.
@@ -35,12 +35,12 @@ Docker, and the single tool is replaced by a get/read pair.
 
 ### Changed
 
-- Package renamed to `falk-document`; bin and MCP server renamed; permission
-  rules are now `mcp__falk-document__falk_document_get` / `..._read`.
+- Package renamed to `digest`; bin and MCP server renamed; permission
+  rules are now `mcp__digest__fetch` / `..._read`.
 - Version is read from package.json at runtime (fixes the stale `0.1.0`
   reported by `--version`).
 - `install`/`uninstall` clean up both the old `webfetch-plus` and new
-  `falk-document` configuration.
+  `digest` configuration.
 
 ### Removed
 

@@ -6,10 +6,10 @@ import {
 } from './cli-uninstall.js';
 
 describe('removeMcpServer', () => {
-  it('removes mcpServers key when only falk-document present', () => {
+  it('removes mcpServers key when only digest present', () => {
     const config = {
       mcpServers: {
-        'falk-document': { command: 'node', args: ['dist/index.js'] },
+        'digest': { command: 'node', args: ['dist/index.js'] },
       },
     };
     const result = removeMcpServer(config);
@@ -26,10 +26,10 @@ describe('removeMcpServer', () => {
     expect(result).not.toHaveProperty('mcpServers');
   });
 
-  it('removes falk-document and legacy, preserves other servers', () => {
+  it('removes digest and legacy, preserves other servers', () => {
     const config = {
       mcpServers: {
-        'falk-document': { command: 'node', args: ['dist/index.js'] },
+        'digest': { command: 'node', args: ['dist/index.js'] },
         'webfetch-plus': { command: 'node', args: ['dist/old.js'] },
         'other-server': { command: 'python', args: ['server.py'] },
       },
@@ -49,7 +49,7 @@ describe('removeMcpServer', () => {
   it('does not mutate the original config', () => {
     const config = {
       mcpServers: {
-        'falk-document': { command: 'node' },
+        'digest': { command: 'node' },
         'other': { command: 'python' },
       },
     };
@@ -125,13 +125,13 @@ describe('removePreToolUseHook', () => {
 });
 
 describe('removePermissions', () => {
-  it('removes permissions key when only falk-document entries', () => {
+  it('removes permissions key when only digest entries', () => {
     const config = {
       permissions: {
         deny: ['WebFetch'],
         allow: [
-          'mcp__falk-document__falk_document_get',
-          'mcp__falk-document__falk_document_read',
+          'mcp__digest__fetch',
+          'mcp__digest__read',
         ],
       },
     };
@@ -150,13 +150,13 @@ describe('removePermissions', () => {
     expect(result).not.toHaveProperty('permissions');
   });
 
-  it('removes only falk-document entries, preserves others', () => {
+  it('removes only digest entries, preserves others', () => {
     const config = {
       permissions: {
         deny: ['WebFetch', 'Bash'],
         allow: [
-          'mcp__falk-document__falk_document_get',
-          'mcp__falk-document__falk_document_read',
+          'mcp__digest__fetch',
+          'mcp__digest__read',
           'Read',
         ],
       },
@@ -173,8 +173,8 @@ describe('removePermissions', () => {
       permissions: {
         deny: ['WebFetch'],
         allow: [
-          'mcp__falk-document__falk_document_get',
-          'mcp__falk-document__falk_document_read',
+          'mcp__digest__fetch',
+          'mcp__digest__read',
           'Read',
         ],
       },
@@ -190,8 +190,8 @@ describe('removePermissions', () => {
       permissions: {
         deny: ['WebFetch', 'Bash'],
         allow: [
-          'mcp__falk-document__falk_document_get',
-          'mcp__falk-document__falk_document_read',
+          'mcp__digest__fetch',
+          'mcp__digest__read',
         ],
       },
     };
@@ -212,8 +212,8 @@ describe('removePermissions', () => {
       permissions: {
         deny: ['WebFetch', 'Bash'],
         allow: [
-          'mcp__falk-document__falk_document_get',
-          'mcp__falk-document__falk_document_read',
+          'mcp__digest__fetch',
+          'mcp__digest__read',
         ],
       },
     };

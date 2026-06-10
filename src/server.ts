@@ -176,7 +176,7 @@ export async function handleRead(
   if (!meta) {
     return text(
       `No cached document for ${args.uri}.\n` +
-      'Run falk_document_get first to fetch it.', true,
+      'Run fetch first to fetch it.', true,
     );
   }
   if (!meta.markdownFile) {
@@ -220,10 +220,10 @@ export async function handleRead(
 }
 
 export function createServer(deps?: ServerDeps) {
-  const server = new McpServer({ name: 'falk-document', version: getVersion() });
+  const server = new McpServer({ name: 'digest', version: getVersion() });
 
   server.tool(
-    'falk_document_get',
+    'fetch',
     'Fetch a URL through a headless browser (JS rendered), convert HTML ' +
     'to structured Markdown on disk, and return metadata, file paths and a ' +
     'section outline. Non-HTML files are downloaded and their path returned.',
@@ -238,11 +238,11 @@ export function createServer(deps?: ServerDeps) {
   );
 
   server.tool(
-    'falk_document_read',
+    'read',
     'Read a previously fetched document from cache: a summary, the section ' +
     'outline (or one named section), keywords, or the full Markdown.',
     {
-      uri: z.string().describe('URL previously fetched with falk_document_get.'),
+      uri: z.string().describe('URL previously fetched with fetch.'),
       mode: z.enum(['summary', 'sections', 'keywords', 'full'])
         .optional().default('sections')
         .describe('What to return. Default sections.'),

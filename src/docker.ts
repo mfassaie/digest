@@ -1,8 +1,8 @@
 import { execFile } from 'node:child_process';
 import { checkHealth } from './container-client.js';
 
-export const IMAGE = 'falk-document:local';
-export const CONTAINER = 'falk-document';
+export const IMAGE = 'digest:local';
+export const CONTAINER = 'digest';
 const SERVICE_PORT = 8932;
 const HEALTH_BUDGET_MS = 20_000;
 
@@ -27,7 +27,7 @@ export const realRunner: CommandRunner = {
 };
 
 const SETUP_HINT =
-  'Run `npx falk-document setup` to build the local Docker image.';
+  'Run `npx digest setup` to build the local Docker image.';
 
 export class DockerUnavailableError extends Error {
   constructor(message: string) {

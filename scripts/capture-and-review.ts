@@ -1,4 +1,4 @@
-// Real-world e2e: drive the production host handlers (falk_document_get /
+// Real-world e2e: drive the production host handlers (fetch /
 // _read) against real sites through the live container, capture rendered
 // HTML as eval fixtures, and dump get/read output for review.
 // Run: npx tsx scripts/capture-and-review.ts

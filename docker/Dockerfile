@@ -1,6 +1,6 @@
-# Derived image: CloakBrowser base + falk-document fetch/convert service.
+# Derived image: CloakBrowser base + digest fetch/convert service.
 # Build context is this docker/ directory. Built locally by
-# `npx falk-document setup` — NEVER pushed to a registry (the CloakBrowser
+# `npx digest setup` — NEVER pushed to a registry (the CloakBrowser
 # binary licence forbids redistribution; internal/derived images are fine).
 #
 # Recon (.falk/02-discover/2026-06-10-cloakbrowser-recon.md): the base
@@ -14,7 +14,7 @@ ENV SERVICE_PORT=8932 \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
     PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1
 
-WORKDIR /app/falk
+WORKDIR /app/digest
 
 # Runtime deps, installed with the base image's Node 20. connectOverCDP
 # means playwright-core needs no bundled browser.
@@ -29,4 +29,4 @@ RUN chmod +x ./launch.sh
 EXPOSE 8932
 
 # The base ENTRYPOINT (/entrypoint.sh) sets up Xvfb, then exec's this CMD.
-CMD ["/app/falk/launch.sh"]
+CMD ["/app/digest/launch.sh"]

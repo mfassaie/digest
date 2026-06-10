@@ -6,7 +6,7 @@ import type { CacheMeta, Section } from './types.js';
 
 export function getCacheRoot(override?: string): string {
   return override ?? join(
-    homedir(), '.claude', 'falk-document', 'cache',
+    homedir(), '.claude', 'digest', 'cache',
   );
 }
 

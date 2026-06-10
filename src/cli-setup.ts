@@ -34,7 +34,7 @@ export async function setup(): Promise<number> {
     });
     child.on('exit', (code) => {
       if (code === 0) {
-        console.log(`\nDone. ${IMAGE} built. Run \`falk-document doctor\` ` +
+        console.log(`\nDone. ${IMAGE} built. Run \`digest doctor\` ` +
           'to verify, then restart Claude Code.');
       }
       resolve(code ?? 1);

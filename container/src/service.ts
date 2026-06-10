@@ -6,7 +6,7 @@ import { orchestrateFetch, type FetchInput } from './fetch-orchestrator.js';
 const SERVICE_PORT = Number(process.env.SERVICE_PORT ?? 8932);
 const CDP_URL = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
 const DATA_ROOT = process.env.DATA_ROOT ?? '/data';
-const VERSION = process.env.FALK_VERSION ?? '0.2.0';
+const VERSION = process.env.DIGEST_VERSION ?? '0.2.0';
 
 const engine = new CdpEngine(CDP_URL);
 
@@ -96,6 +96,6 @@ const server = createServer((req, res) => {
 
 server.listen(SERVICE_PORT, () => {
   process.stderr.write(
-    `falk-document service on :${SERVICE_PORT}, CDP ${CDP_URL}\n`,
+    `digest service on :${SERVICE_PORT}, CDP ${CDP_URL}\n`,
   );
 });

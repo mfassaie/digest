@@ -104,7 +104,7 @@ describe('printUsage', () => {
     printUsage();
     expect(spy).toHaveBeenCalledOnce();
     const output = spy.mock.calls[0][0] as string;
-    expect(output).toContain('Usage: falk-document');
+    expect(output).toContain('Usage: digest');
     expect(output).toContain('setup');
     expect(output).toContain('doctor');
     expect(output).toContain('install');

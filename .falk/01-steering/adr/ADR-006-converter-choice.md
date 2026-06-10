@@ -7,9 +7,9 @@
 ## Context
 
 v2 moves HTML→Markdown conversion into the container. The converter
-determines the quality of the section structure that `falk_document_read`
+determines the quality of the section structure that `read`
 exposes, so the choice was gated on a head-to-head eval
-(`eval/`, run with `pnpm --filter @falk-document/eval run all`).
+(`eval/`, run with `pnpm --filter @digest/eval run all`).
 
 Corpus: 12 fixtures (docs-with-code, tables, news+boilerplate, deep lists,
 SPA post-render snapshot, MathML, footnotes, CJK, 1.15 MB generated page,

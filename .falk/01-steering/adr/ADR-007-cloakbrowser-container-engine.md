@@ -37,7 +37,7 @@ The CloakBrowser **binary** licence (proprietary, free to use) permits
 internal/derived Docker images but **forbids redistribution**. Therefore:
 
 - The derived image is **built locally** on the user's machine via
-  `npx falk-document setup` and is **never pushed** to any registry —
+  `npx digest setup` and is **never pushed** to any registry —
   not Docker Hub, not GHCR, not in CI.
 - The npm package ships only the build context (`docker/`: Dockerfile,
   launcher, service bundle, runtime deps manifest), not the image.

@@ -1,4 +1,4 @@
-# ADR-008: falk_document_read returns inline content
+# ADR-008: read returns inline content
 
 - Status: Accepted
 - Date: 2026-06-10
@@ -9,7 +9,7 @@
 ADR-003 established that the fetch tool returns metadata and file paths
 only, never inline page content — to keep large pages out of the model
 context and force deliberate reads. v2 splits the tool in two
-(`falk_document_get`, `falk_document_read`), and the read tool's whole
+(`fetch`, `read`), and the read tool's whole
 purpose is to return content.
 
 ## Decision
@@ -17,9 +17,9 @@ purpose is to return content.
 Scope ADR-003 to the **get** tool, and allow the **read** tool to return
 content inline.
 
-- `falk_document_get` keeps the ADR-003 contract: metadata, file paths, and
+- `fetch` keeps the ADR-003 contract: metadata, file paths, and
   a cheap heading outline only. Never the body.
-- `falk_document_read` returns content inline, but in bounded, deliberate
+- `read` returns content inline, but in bounded, deliberate
   units chosen by the caller:
   - `sections` (default): the heading outline, or one named section's text
   - `summary`: an extractive summary (plus defuddle's description)

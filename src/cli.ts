@@ -24,7 +24,7 @@ export function parseArgs(
 }
 
 export function printUsage(): void {
-  const msg = `Usage: falk-document [command]
+  const msg = `Usage: digest [command]
 
 Commands:
   setup                               Build the local Docker image

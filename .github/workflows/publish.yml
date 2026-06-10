@@ -34,7 +34,7 @@ jobs:
         run: pnpm lint
 
       - name: Typecheck container
-        run: pnpm --filter @falk-document/container typecheck
+        run: pnpm --filter @digest/container typecheck
 
       - name: Build
         run: pnpm build
@@ -43,7 +43,7 @@ jobs:
         run: pnpm test
 
       - name: Test (container)
-        run: pnpm --filter @falk-document/container test
+        run: pnpm --filter @digest/container test
 
       - name: Bump patch version
         run: npm version patch --no-git-tag-version

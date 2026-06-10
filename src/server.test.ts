@@ -126,7 +126,7 @@ describe('handleRead', () => {
   it('errors when nothing cached', async () => {
     const out = await handleRead({ uri: 'https://ex.com/none' }, deps(fetched));
     expect(out.isError).toBe(true);
-    expect(out.content[0].text).toContain('falk_document_get first');
+    expect(out.content[0].text).toContain('fetch first');
   });
 
   it('returns the section outline by default', async () => {

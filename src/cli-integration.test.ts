@@ -47,7 +47,7 @@ describe('install end-to-end', () => {
     const mcp = JSON.parse(
       await readFile(target.mcpConfig, 'utf8'),
     );
-    expect(mcp.mcpServers['falk-document']).toEqual(
+    expect(mcp.mcpServers['digest']).toEqual(
       buildMcpEntry(),
     );
 
@@ -69,8 +69,8 @@ describe('install end-to-end', () => {
     );
     expect(local.permissions.deny).toEqual(['WebFetch']);
     expect(local.permissions.allow).toEqual([
-      'mcp__falk-document__falk_document_get',
-      'mcp__falk-document__falk_document_read',
+      'mcp__digest__fetch',
+      'mcp__digest__read',
     ]);
   });
 
@@ -106,7 +106,7 @@ describe('install end-to-end', () => {
       command: 'node',
       args: ['other.js'],
     });
-    expect(mcp.mcpServers['falk-document']).toEqual(
+    expect(mcp.mcpServers['digest']).toEqual(
       buildMcpEntry(),
     );
   });
@@ -229,7 +229,7 @@ describe('uninstall integration (project scope)', () => {
     });
     expect(
       (mcpAfter.mcpServers as Record<string, unknown>)[
-        'falk-document'
+        'digest'
       ],
     ).toBeUndefined();
 

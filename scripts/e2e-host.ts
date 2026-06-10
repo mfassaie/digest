@@ -1,7 +1,7 @@
 // Live end-to-end check of the host MCP handlers against a real container.
-// Builds nothing; assumes `falk-document:local` image exists. Starts the
-// container via the real docker lifecycle, runs falk_document_get and
-// falk_document_read against live URLs, prints results. Not a unit test —
+// Builds nothing; assumes `digest:local` image exists. Starts the
+// container via the real docker lifecycle, runs fetch and
+// read against live URLs, prints results. Not a unit test —
 // run manually: `node --import tsx scripts/e2e-host.ts`.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

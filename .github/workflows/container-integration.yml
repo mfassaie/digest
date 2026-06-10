@@ -25,10 +25,10 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
       - name: Build service bundle
-        run: pnpm --filter @falk-document/container build
+        run: pnpm --filter @digest/container build
 
       - name: Build local image (never pushed)
-        run: docker build -t falk-document:local docker
+        run: docker build -t digest:local docker
 
       - name: Build host
         run: pnpm build

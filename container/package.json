@@ -1,9 +1,9 @@
 {
-  "name": "@falk-document/container",
+  "name": "@digest/container",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "In-container fetch + convert service for falk-document",
+  "description": "In-container fetch + convert service for digest",
   "scripts": {
     "build": "tsx build.ts",
     "test": "vitest run",

@@ -4,7 +4,7 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.1.x   | Yes       |
+| 0.2.x   | Yes       |
 
 ## Reporting a vulnerability
 
@@ -12,7 +12,7 @@ If you discover a security vulnerability, please report it responsibly.
 
 **Do not open a public issue.**
 
-Instead, use [GitHub private vulnerability reporting](https://github.com/mfassaie/webfetch-plus/security/advisories/new) to submit your report.
+Instead, use [GitHub private vulnerability reporting](https://github.com/mfassaie/digest/security/advisories/new) to submit your report.
 
 You can expect:
 - Acknowledgement within 48 hours

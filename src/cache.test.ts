@@ -22,9 +22,9 @@ describe('cache paths', () => {
     expect(getCachePath('https://example.com/a'))
       .not.toBe(getCachePath('https://example.com/b'));
   });
-  it('default root is under .claude/falk-document', () => {
+  it('default root is under .claude/digest', () => {
     expect(getCacheRoot().replace(/\\/g, '/'))
-      .toContain('.claude/falk-document/cache');
+      .toContain('.claude/digest/cache');
   });
 });
 

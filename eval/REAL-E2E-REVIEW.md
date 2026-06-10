@@ -218,7 +218,7 @@ Sections (4):
   - Historical context for Kubernetes [historical-context-for-kubernetes]
   - What's next [whats-next]
 
-Use falk_document_read with mode=sections|summary|keywords|full (and section=<slug> for one section).
+Use read with mode=sections|summary|keywords|full (and section=<slug> for one section).
 ```
 
 ### read sections
@@ -266,7 +266,7 @@ Source: fresh
 Sections (0):
 (no headings)
 
-Use falk_document_read with mode=sections|summary|keywords|full (and section=<slug> for one section).
+Use read with mode=sections|summary|keywords|full (and section=<slug> for one section).
 ```
 
 ### read sections
@@ -298,18 +298,18 @@ Reason: HTTP 402
 ### read sections
 ```
 [isError] No cached document for https://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-processing-an-unsorted-array.
-Run falk_document_get first to fetch it.
+Run fetch first to fetch it.
 ```
 
 ### read summary
 ```
 [isError] No cached document for https://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-processing-an-unsorted-array.
-Run falk_document_get first to fetch it.
+Run fetch first to fetch it.
 ```
 
 ### read keywords
 ```
 [isError] No cached document for https://stackoverflow.com/questions/11227809/why-is-processing-a-sorted-array-faster-than-processing-an-unsorted-array.
-Run falk_document_get first to fetch it.
+Run fetch first to fetch it.
 ```
 

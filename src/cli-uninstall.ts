@@ -23,7 +23,7 @@ export function removeMcpServer(
   const servers = { ...(result.mcpServers as
     Record<string, unknown> ?? {}) };
   delete servers['webfetch-plus']; // pre-rename
-  delete servers['falk-document'];
+  delete servers['digest'];
   if (Object.keys(servers).length === 0) {
     delete result.mcpServers;
   } else {
@@ -70,8 +70,8 @@ export function removePermissions(
     (perms.allow ?? []) as string[]
   ).filter(
     r => r !== 'mcp__webfetch-plus__webfetch_plus' &&
-      r !== 'mcp__falk-document__falk_document_get' &&
-      r !== 'mcp__falk-document__falk_document_read',
+      r !== 'mcp__digest__fetch' &&
+      r !== 'mcp__digest__read',
   );
   if (deny.length === 0) delete perms.deny;
   else perms.deny = deny;

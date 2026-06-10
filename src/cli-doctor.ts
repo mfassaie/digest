@@ -10,7 +10,7 @@ interface Check {
   detail: string;
 }
 
-// Diagnose the falk-document environment: Docker, the local image, and a
+// Diagnose the digest environment: Docker, the local image, and a
 // writable cache directory.
 export async function doctor(): Promise<number> {
   const checks: Check[] = [];
@@ -34,8 +34,8 @@ export async function doctor(): Promise<number> {
   }
   checks.push({
     name: 'Image', ok: img,
-    detail: img ? 'falk-document:local present'
-      : 'missing — run `falk-document setup`',
+    detail: img ? 'digest:local present'
+      : 'missing — run `digest setup`',
   });
 
   const cacheRoot = getCacheRoot();

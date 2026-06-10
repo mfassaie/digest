@@ -16,7 +16,7 @@ export interface GetParams {
   source: 'fresh' | 'cache (validated)';
 }
 
-// falk_document_get success: metadata, file paths, section outline. Never
+// fetch success: metadata, file paths, section outline. Never
 // the document body inline (ADR-003, scoped by ADR-008).
 export function formatGet(p: GetParams): string {
   const m = p.meta;
@@ -48,7 +48,7 @@ export function formatGet(p: GetParams): string {
   if (m.markdownFile) {
     lines.push('', `Sections (${p.sections.length}):`);
     lines.push(formatOutline(p.sections));
-    lines.push('', 'Use falk_document_read with mode=sections|summary|' +
+    lines.push('', 'Use read with mode=sections|summary|' +
       'keywords|full (and section=<slug> for one section).');
   }
   return lines.join('\n');

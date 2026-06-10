@@ -9,14 +9,14 @@ export function buildMcpEntry(): Record<string, unknown> {
   return {
     command: isWin ? 'cmd' : 'npx',
     args: isWin
-      ? ['/c', 'npx', '-y', 'falk-document']
-      : ['-y', 'falk-document'],
+      ? ['/c', 'npx', '-y', '@mfassaie/digest']
+      : ['-y', '@mfassaie/digest'],
     env: { NODE_OPTIONS: '--use-system-ca' },
   };
 }
 
 const DENY_REASON =
-  'Use mcp__falk-document__falk_document_get instead.' +
+  'Use mcp__digest__fetch instead.' +
   ' Built-in WebFetch is disabled.';
 
 export function buildHookCommand(): string {
@@ -38,7 +38,7 @@ export function addMcpServer(
   const servers = (config.mcpServers ?? {}) as
     Record<string, unknown>;
   delete servers['webfetch-plus']; // remove the pre-rename server
-  servers['falk-document'] = buildMcpEntry();
+  servers['digest'] = buildMcpEntry();
   return { ...config, mcpServers: servers };
 }
 
@@ -79,11 +79,11 @@ export function addPermissions(
     (perms.allow ?? []) as string[]
   ).filter(
     r => r !== 'mcp__webfetch-plus__webfetch_plus' &&
-      r !== 'mcp__falk-document__falk_document_get' &&
-      r !== 'mcp__falk-document__falk_document_read',
+      r !== 'mcp__digest__fetch' &&
+      r !== 'mcp__digest__read',
   );
-  allow.push('mcp__falk-document__falk_document_get');
-  allow.push('mcp__falk-document__falk_document_read');
+  allow.push('mcp__digest__fetch');
+  allow.push('mcp__digest__read');
   return {
     ...config,
     permissions: { ...perms, deny, allow },

@@ -43,7 +43,7 @@ if (sub === '--help') {
 } else {
   main().catch((err) => {
     console.error(
-      'webfetch-plus failed to start:', err,
+      'digest failed to start:', err,
     );
     process.exit(1);
   });
@@ -70,17 +70,17 @@ async function runCli(
 
   if (subcommand === 'install') {
     console.log(
-      `Installing webfetch-plus (${scope} scope)...`,
+      `Installing digest (${scope} scope)...`,
     );
     const log = await install(target);
     log.forEach(l => console.log(l));
     console.log(
-      '\nDone. If you have not already, run `falk-document setup` to ' +
+      '\nDone. If you have not already, run `digest setup` to ' +
       'build the Docker image, then restart Claude Code to activate.',
     );
   } else {
     console.log(
-      `Removing webfetch-plus (${scope} scope)...`,
+      `Removing digest (${scope} scope)...`,
     );
     const log = await uninstall(target);
     log.forEach(l => console.log(l));
