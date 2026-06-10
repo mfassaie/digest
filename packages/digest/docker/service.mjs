@@ -47,7 +47,6 @@ var CdpEngine = class {
   async render(url, headers, timeoutMs) {
     const browser = await this.getBrowser();
     const context = await browser.newContext({
-      userAgent: headers["User-Agent"],
       extraHTTPHeaders: headers
     });
     const page = await context.newPage();
@@ -77,9 +76,6 @@ var CdpEngine = class {
     if (this.browser?.isConnected()) await this.browser.close();
   }
 };
-
-// src/engine.ts
-var USER_AGENT = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)";
 
 // src/converter.ts
 import { parseHTML } from "linkedom";
@@ -189,7 +185,7 @@ function buildStructure(markdown) {
 // src/fetch-orchestrator.ts
 var MAX_REDIRECTS = 5;
 function baseHeaders(v) {
-  const h = { "User-Agent": USER_AGENT };
+  const h = {};
   if (v?.etag) h["If-None-Match"] = v.etag;
   if (v?.lastModified) h["If-Modified-Since"] = v.lastModified;
   return h;

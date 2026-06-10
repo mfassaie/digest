@@ -1,5 +1,4 @@
 import type { BrowserEngine, RenderResult } from './engine.js';
-import { USER_AGENT } from './engine.js';
 import {
   classifyContentType, getFileExtension, convertHtml,
   type DocumentMeta,
@@ -44,8 +43,11 @@ export type FetchOutcome =
   | { outcome: 'timeout' }
   | { outcome: 'fetch-failed'; reason: string };
 
+// No User-Agent override: CloakBrowser supplies its own default real-Chrome UA,
+// consistent with its patched fingerprint. Forcing a self-identifying agent UA
+// here defeated the stealth and tripped content negotiation (served markdown).
 function baseHeaders(v?: FetchInput['validators']): Record<string, string> {
-  const h: Record<string, string> = { 'User-Agent': USER_AGENT };
+  const h: Record<string, string> = {};
   if (v?.etag) h['If-None-Match'] = v.etag;
   if (v?.lastModified) h['If-Modified-Since'] = v.lastModified;
   return h;

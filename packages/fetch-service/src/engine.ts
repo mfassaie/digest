@@ -31,7 +31,3 @@ export interface BrowserEngine {
     timeoutMs: number,
   ): Promise<RenderResult>;
 }
-
-export const USER_AGENT =
-  'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; ' +
-  'compatible; Claude-User/1.0; +Claude-User@anthropic.com)';

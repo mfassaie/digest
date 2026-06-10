@@ -55,8 +55,9 @@ export class CdpEngine implements BrowserEngine {
     url: string, headers: Record<string, string>, timeoutMs: number,
   ): Promise<RenderResult> {
     const browser = await this.getBrowser();
+    // No userAgent override: keep CloakBrowser's default UA so it matches the
+    // patched fingerprint (see baseHeaders in fetch-orchestrator).
     const context = await browser.newContext({
-      userAgent: headers['User-Agent'],
       extraHTTPHeaders: headers,
     });
     const page = await context.newPage();
