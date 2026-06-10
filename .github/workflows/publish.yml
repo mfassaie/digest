@@ -33,11 +33,17 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Typecheck container
+        run: pnpm --filter @falk-document/container typecheck
+
       - name: Build
         run: pnpm build
 
-      - name: Test
+      - name: Test (host)
         run: pnpm test
+
+      - name: Test (container)
+        run: pnpm --filter @falk-document/container test
 
       - name: Bump patch version
         run: npm version patch --no-git-tag-version

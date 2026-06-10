@@ -1,137 +1,134 @@
-# webfetch-plus
+# falk-document
 
-Timeout-safe MCP server replacing Claude Code's built-in WebFetch.
+An MCP server that fetches web pages through a real headless browser
+(CloakBrowser, in Docker) and serves them back as structured Markdown — a
+summary, the section outline, one named section, keywords, or the full
+document. It replaces Claude Code's built-in WebFetch with a timeout-safe,
+JavaScript-rendering alternative.
 
-## Problem
+> Formerly published as `webfetch-plus`. The repository name is unchanged.
 
-Claude Code's built-in WebFetch has no timeout. When a subagent calls
-WebFetch and the fetch never completes, the subagent hangs forever and
-the parent agent has no recovery path. Analysis of 235 subagent logs
-showed 75% of hung subagents died on a WebFetch call.
+## Why
 
-## Features
+Claude Code's built-in WebFetch has no timeout and does not run JavaScript:
+SPA/hydrated pages come back empty, bot-protected pages fail, and a fetch
+that never returns hangs the agent. falk-document fixes all three:
 
-- Hard timeout (default 30s) prevents agent hangs
-- HTML content extraction and markdown conversion via defuddle
-- Disk-based cache with HTTP conditional validation (ETag / If-Modified-Since)
-- Content-type branching (HTML, text, JSON, XML, binary)
-- HTTP to HTTPS auto-upgrade
-- Cross-host redirect detection and reporting
-- Same-host redirects followed automatically (up to 5 hops)
-- Returns metadata and file paths only, never inline content
-- CLI install and uninstall for project or global scope
+- **Real rendering** — pages are loaded in a stealth Chromium, so
+  JavaScript-rendered content is captured.
+- **Hard timeout** — every fetch is bounded; the server cannot hang even if
+  the browser does.
+- **Structured output** — HTML is converted to clean Markdown with a
+  heading index, so callers can read a summary or a single section instead
+  of dumping the whole page into context.
+
+## Requirements
+
+- Docker (Desktop or Engine), running. The fetch engine is a local Docker
+  image built from CloakBrowser.
+- Node.js 22+.
 
 ## Installation
 
-### Quick
-
 ```sh
-npx webfetch-plus install
+npx falk-document setup      # build the local Docker image (~600 MB, one-time)
+npx falk-document install    # register the MCP server + block built-in WebFetch
 ```
 
-This registers the MCP server, adds a PreToolUse hook to block the
-built-in WebFetch, and configures deny/allow permissions in your
-project's Claude Code config.
+Then restart Claude Code. Check your environment any time with:
 
-### Manual
+```sh
+npx falk-document doctor
+```
 
-Add the following to your `.mcp.json`:
+`install` registers the MCP server in `.mcp.json`, adds a PreToolUse hook
+that blocks the built-in WebFetch, and sets deny/allow permissions. Use
+`--scope global` to apply to all projects, and `uninstall` to reverse it.
+
+> The local image embeds CloakBrowser and is for your machine only — the
+> CloakBrowser binary licence forbids redistributing it, so `setup` builds
+> it locally and never pushes it anywhere.
+
+### Manual MCP registration
 
 ```json
 {
   "mcpServers": {
-    "webfetch-plus": {
+    "falk-document": {
       "command": "npx",
-      "args": ["-y", "webfetch-plus"],
+      "args": ["-y", "falk-document"],
       "env": { "NODE_OPTIONS": "--use-system-ca" }
     }
   }
 }
 ```
 
-On Windows, `npx` must be wrapped with `cmd /c` (the installer does
-this automatically):
+On Windows, `npx` must be wrapped with `cmd /c` (the installer does this):
 
 ```json
 {
   "mcpServers": {
-    "webfetch-plus": {
+    "falk-document": {
       "command": "cmd",
-      "args": ["/c", "npx", "-y", "webfetch-plus"],
+      "args": ["/c", "npx", "-y", "falk-document"],
       "env": { "NODE_OPTIONS": "--use-system-ca" }
     }
   }
 }
 ```
 
-### Global install
+## Tools
 
-To install for all projects (user-level config):
+### `falk_document_get`
 
-```sh
-npx webfetch-plus install --scope global
-```
+Fetches a URL through the browser, converts HTML to Markdown on disk, and
+returns metadata, file paths and the section outline — never the page body
+inline.
 
-### Uninstall
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| uri | string | – | URL to fetch. HTTP auto-upgraded to HTTPS. |
+| timeout_seconds | number | 30 | Hard timeout in seconds. |
+| raw_only | boolean | false | Download HTML as-is without conversion. |
 
-```sh
-npx webfetch-plus uninstall
-```
+Non-HTML responses (PDFs, images, JSON, …) are downloaded and their path
+returned; no conversion is attempted.
 
-For global scope, add `--scope global`.
+### `falk_document_read`
 
-## Configuration
+Reads a previously fetched document from the cache. No network.
 
-### Parameters
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| uri | string | – | URL previously fetched with `falk_document_get`. |
+| mode | enum | sections | `summary` \| `sections` \| `keywords` \| `full`. |
+| section | string | – | With `mode=sections`, return one section by slug or title. |
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| url | string | yes | - | URL to fetch. HTTP auto-upgraded to HTTPS. |
-| prompt | string | no | - | Context for the fetch (accepted for compatibility, currently unused). |
-| timeout_seconds | number | no | 30 | Hard timeout in seconds. |
+A typical loop: `get` a URL (see the outline cheaply), then `read` a summary
+or a specific section. `full` returns the whole document and is opt-in.
 
-### Cache location
-
-Cached responses are stored at `~/.claude/webfetch-plus/cache/`. Each
-entry contains the raw response, converted markdown (for HTML), and
-a `meta.json` file with ETag, Last-Modified, and fetch timestamp.
-
-## Usage
-
-The tool returns metadata and file paths. It never includes page
-content inline. A typical response looks like:
+## How it works
 
 ```
-URL: https://example.com/docs/api
-Status: 200
-Content-Type: text/html
-Title: API Documentation
-
-Files:
-  markdown: ~/.claude/webfetch-plus/cache/example.com/<hash>/content.md
-  raw: ~/.claude/webfetch-plus/cache/example.com/<hash>/raw.html
-
-Size: 45.2 KB (markdown) | 128.7 KB (raw)
-Fetched: 2026-04-02T14:30:00Z
-Source: fresh
+Claude Code ──stdio──> falk-document MCP server (host)
+                         starts/uses the Docker container, calls it over HTTP
+                         ▼
+        container (local image, built by `setup`)
+          CloakBrowser (CDP) + a fetch/convert service
+          renders the page, converts to Markdown, writes files to the cache
 ```
 
-On error, the tool returns `isError: true` with a reason:
+The MCP server auto-starts the container on first use and reports a clear
+error (no silent fallback) if Docker or the image is missing. Conversion and
+download happen inside the container; the cache directory is bind-mounted so
+files are written straight to the host.
 
-```
-Error fetching https://example.com/unreachable
-Reason: Timeout after 30 seconds
-```
+### Cache
 
-Cross-host redirects are reported without following:
-
-```
-Redirect detected (cross-host):
-  From: https://old.example.com/docs
-  To: https://new.example.com/docs
-
-Make a new request with the redirect URL to fetch the content.
-```
+Cached at `~/.claude/falk-document/cache/<domain>/<sha256(url)>/`:
+`raw.<ext>`, `content.md`, `structure.json` (heading index), and `meta.json`
+(ETag, Last-Modified, document metadata). Repeat fetches are revalidated
+with conditional requests (ETag / If-Modified-Since).
 
 ## Development
 
@@ -141,9 +138,14 @@ cd webfetch-plus
 pnpm install
 pnpm build
 pnpm test
-pnpm lint
 ```
+
+This is a pnpm workspace: the root is the published MCP server, `container/`
+is the in-image service, and `eval/` is the converter eval harness
+(`pnpm --filter @falk-document/eval run all`).
 
 ## Licence
 
-[MIT](LICENSE)
+[MIT](LICENSE) for this project's code. The CloakBrowser base image is
+proprietary (free to use, no redistribution); the derived image is built
+locally and never published.
