@@ -26,8 +26,8 @@ pnpm test         # host tests
 pnpm --filter @digest/container test   # container tests
 ```
 
-The design rationale lives in `.falk/01-steering/adr` (ADR-006 converter,
-ADR-007 container engine, ADR-008 read tool, ADR-009 host-side writing).
+Key design decisions are noted in code comments by ADR number (converter
+choice, container engine, read tool, host-side writing).
 
 ## Licence
 
