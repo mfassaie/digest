@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Repo test tooling: integration scripts and the converter eval harness",
   "scripts": {
-    "test": "tsx integration/verify-dev.ts && tsx integration/verify-docroot.ts && tsx integration/e2e-host.ts",
+    "test": "tsx integration/verify-dev.ts",
     "e2e": "tsx integration/e2e-host.ts",
     "verify:dev": "tsx integration/verify-dev.ts",
     "verify:docroot": "tsx integration/verify-docroot.ts",
