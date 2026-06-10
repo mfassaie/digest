@@ -16,14 +16,14 @@ This is a pnpm workspace:
 | Package | Purpose |
 |---------|---------|
 | [`packages/digest`](packages/digest) | `@mfassaie/digest` — the host MCP server (published) and the Docker build context. |
-| [`packages/container`](packages/container) | `@digest/container` — the in-image fetch/convert service, bundled into the image. |
+| [`packages/fetch-service`](packages/fetch-service) | `@digest/fetch-service` — the in-image fetch/convert service, bundled into the image. |
 | [`packages/eval`](packages/eval) | `@digest/eval` — the HTML-to-Markdown converter eval harness (defuddle chosen, ADR-006). |
 
 ```sh
 pnpm install
 pnpm build        # build the host package
 pnpm test         # host tests
-pnpm --filter @digest/container test   # container tests
+pnpm --filter @digest/fetch-service test   # fetch-service tests
 ```
 
 Key design decisions are noted in code comments by ADR number (converter
