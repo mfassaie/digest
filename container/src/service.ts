@@ -5,7 +5,6 @@ import { orchestrateFetch, type FetchInput } from './fetch-orchestrator.js';
 
 const SERVICE_PORT = Number(process.env.SERVICE_PORT ?? 8932);
 const CDP_URL = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
-const DATA_ROOT = process.env.DATA_ROOT ?? '/data';
 const VERSION = process.env.DIGEST_VERSION ?? '0.2.0';
 
 const engine = new CdpEngine(CDP_URL);
@@ -28,12 +27,9 @@ async function readBody(req: IncomingMessage): Promise<string> {
 function validateInput(raw: unknown): FetchInput | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const r = raw as Record<string, unknown>;
-  if (typeof r.url !== 'string' || typeof r.cachePath !== 'string') {
-    return null;
-  }
+  if (typeof r.url !== 'string') return null;
   return {
     url: r.url,
-    cachePath: r.cachePath,
     timeoutSeconds: typeof r.timeoutSeconds === 'number'
       ? r.timeoutSeconds : 30,
     rawOnly: r.rawOnly === true,
@@ -65,12 +61,12 @@ async function handle(
     }
     if (!input) {
       sendJson(res, 400, {
-        outcome: 'fetch-failed', reason: 'url and cachePath required',
+        outcome: 'fetch-failed', reason: 'url required',
       });
       return;
     }
     try {
-      const result = await orchestrateFetch(engine, DATA_ROOT, input);
+      const result = await orchestrateFetch(engine, input);
       const code = result.outcome === 'timeout' ? 504
         : result.outcome === 'fetch-failed' ? 502 : 200;
       sendJson(res, code, result);

@@ -35,13 +35,20 @@ export interface CacheMeta {
   structureFile?: string;
 }
 
-// Request sent to the in-container service.
+// Request sent to the in-container service. The container is document-root-
+// agnostic, so no cache path is sent — the host writes the returned content.
 export interface ContainerFetchRequest {
   url: string;
-  cachePath: string;
   timeoutSeconds: number;
   rawOnly: boolean;
   validators?: { etag?: string; lastModified?: string };
+}
+
+// Content the container returns for the host to write.
+export interface FetchContent {
+  ext: string;
+  raw: string; // base64-encoded raw bytes
+  markdown?: string;
 }
 
 export interface DocumentMeta {
@@ -67,8 +74,7 @@ export type ContainerFetchResponse =
       lastModified?: string;
       meta: DocumentMeta;
       sections: Section[];
-      files: { raw: string; markdown?: string; structure?: string };
-      bytes: { raw: number; markdown?: number };
+      content: FetchContent;
     }
   | { outcome: 'not-modified' }
   | { outcome: 'cross-host-redirect'; fromUrl: string; toUrl: string }

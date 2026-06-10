@@ -1,7 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { describe, it, expect } from 'vitest';
 import type {
   BrowserEngine, PreflightResponse, RenderResult,
 } from './engine.js';
@@ -48,51 +45,49 @@ class FakeEngine implements BrowserEngine {
   }
 }
 
-let dataRoot: string;
-beforeEach(() => { dataRoot = mkdtempSync(join(tmpdir(), 'falk-orch-')); });
-afterEach(() => { rmSync(dataRoot, { recursive: true, force: true }); });
-
 const base: Omit<FetchInput, 'url'> = {
-  cachePath: 'example.com/hash',
   timeoutSeconds: 30,
   rawOnly: false,
 };
 
+// Decode the returned base64 raw into a utf8 string for assertions.
+function rawText(raw: string): string {
+  return Buffer.from(raw, 'base64').toString('utf8');
+}
+
 describe('orchestrateFetch', () => {
-  it('renders and converts HTML, writing md + structure', async () => {
+  it('renders and converts HTML, returning markdown + structure', async () => {
     const engine = new FakeEngine([
       { status: 200, headers: { 'content-type': 'text/html' }, body: '<raw>' },
     ]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/page',
     });
     expect(out.outcome).toBe('fetched');
     if (out.outcome !== 'fetched') return;
     expect(engine.rendered).toBe(true);
     expect(out.category).toBe('html');
-    expect(out.files.markdown).toBe('content.md');
-    expect(out.files.structure).toBe('structure.json');
+    expect(out.content.ext).toBe('html');
+    expect(out.content.markdown).toContain('Rendered');
     expect(out.sections.length).toBeGreaterThan(0);
-    const dir = join(dataRoot, base.cachePath);
-    expect(existsSync(join(dir, 'content.md'))).toBe(true);
-    expect(readFileSync(join(dir, 'content.md'), 'utf8')).toContain('Rendered');
+    expect(rawText(out.content.raw)).toContain('Rendered');
   });
 
-  it('saves non-HTML as raw and does not render', async () => {
+  it('returns non-HTML as raw and does not render', async () => {
     const engine = new FakeEngine([
       { status: 200, headers: { 'content-type': 'application/pdf' },
         body: '%PDF-1.7 data' },
     ]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/file.pdf',
     });
     expect(out.outcome).toBe('fetched');
     if (out.outcome !== 'fetched') return;
     expect(engine.rendered).toBe(false);
     expect(out.category).toBe('binary');
-    expect(out.files.raw).toBe('raw.pdf');
-    expect(out.files.markdown).toBeUndefined();
-    expect(existsSync(join(dataRoot, base.cachePath, 'raw.pdf'))).toBe(true);
+    expect(out.content.ext).toBe('pdf');
+    expect(out.content.markdown).toBeUndefined();
+    expect(rawText(out.content.raw)).toContain('%PDF-1.7');
   });
 
   it('honours raw_only for HTML (no render, no markdown)', async () => {
@@ -100,14 +95,15 @@ describe('orchestrateFetch', () => {
       { status: 200, headers: { 'content-type': 'text/html' },
         body: '<html><body>raw html</body></html>' },
     ]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/page', rawOnly: true,
     });
     expect(out.outcome).toBe('fetched');
     if (out.outcome !== 'fetched') return;
     expect(engine.rendered).toBe(false);
-    expect(out.files.raw).toBe('raw.html');
-    expect(out.files.markdown).toBeUndefined();
+    expect(out.content.ext).toBe('html');
+    expect(out.content.markdown).toBeUndefined();
+    expect(rawText(out.content.raw)).toContain('raw html');
   });
 
   it('follows same-host redirects', async () => {
@@ -115,7 +111,7 @@ describe('orchestrateFetch', () => {
       { status: 301, headers: { location: 'https://example.com/final' } },
       { status: 200, headers: { 'content-type': 'text/html' }, body: 'x' },
     ]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/start',
     });
     expect(out.outcome).toBe('fetched');
@@ -128,7 +124,7 @@ describe('orchestrateFetch', () => {
     const engine = new FakeEngine([
       { status: 302, headers: { location: 'https://other.com/x' } },
     ]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/start',
     });
     expect(out.outcome).toBe('cross-host-redirect');
@@ -138,7 +134,7 @@ describe('orchestrateFetch', () => {
 
   it('returns not-modified on 304', async () => {
     const engine = new FakeEngine([{ status: 304 }]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/page',
       validators: { etag: 'abc' },
     });
@@ -147,7 +143,7 @@ describe('orchestrateFetch', () => {
 
   it('returns http-error on 4xx/5xx', async () => {
     const engine = new FakeEngine([{ status: 404 }]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/missing',
     });
     expect(out.outcome).toBe('http-error');
@@ -157,7 +153,7 @@ describe('orchestrateFetch', () => {
 
   it('does not escalate a plain 404 to the browser', async () => {
     const engine = new FakeEngine([{ status: 404 }]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/missing',
     });
     expect(engine.rendered).toBe(false);
@@ -171,22 +167,18 @@ describe('orchestrateFetch', () => {
       html: '<html><body><main><h1>Unblocked</h1>'
         + '<p>Real content after stealth navigation.</p></main></body></html>',
     });
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://stackoverflow.com/q/1',
     });
     expect(engine.rendered).toBe(true);
     expect(out.outcome).toBe('fetched');
     if (out.outcome !== 'fetched') return;
-    expect(out.files.markdown).toBe('content.md');
-    const md = readFileSync(
-      join(dataRoot, base.cachePath, 'content.md'), 'utf8',
-    );
-    expect(md).toContain('Unblocked');
+    expect(out.content.markdown).toContain('Unblocked');
   });
 
   it('does not escalate a bot-block status when raw_only', async () => {
     const engine = new FakeEngine([{ status: 403 }]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/p', rawOnly: true,
     });
     expect(engine.rendered).toBe(false);
@@ -196,7 +188,7 @@ describe('orchestrateFetch', () => {
   it('reports the original error when the stealth render also fails', async () => {
     // 403 pre-flight, and the render returns 403 too.
     const engine = new FakeEngine([{ status: 403 }], { status: 403 });
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/blocked',
     });
     expect(engine.rendered).toBe(true);
@@ -216,15 +208,12 @@ describe('orchestrateFetch', () => {
         body: '<html><body><main><h1>Fallback</h1>'
           + '<p>Static body.</p></main></body></html>' },
     ]);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/page',
     });
     expect(out.outcome).toBe('fetched');
     if (out.outcome !== 'fetched') return;
-    const md = readFileSync(
-      join(dataRoot, base.cachePath, 'content.md'), 'utf8',
-    );
-    expect(md).toContain('Fallback');
+    expect(out.content.markdown).toContain('Fallback');
   });
 
   it('reports fetch-failed when too many redirects', async () => {
@@ -235,7 +224,7 @@ describe('orchestrateFetch', () => {
       });
     }
     const engine = new FakeEngine(hops);
-    const out = await orchestrateFetch(engine, dataRoot, {
+    const out = await orchestrateFetch(engine, {
       ...base, url: 'https://example.com/start',
     });
     expect(out.outcome).toBe('fetch-failed');

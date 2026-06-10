@@ -58,14 +58,13 @@ describe('ensureContainer', () => {
       run: { stdout: 'id', code: 0 },
       port: { stdout: '127.0.0.1:32811', code: 0 },
     });
-    const { baseUrl } = await ensureContainer(r, {
-      cacheRoot: '/c', healthCheck: healthy,
-    });
+    const { baseUrl } = await ensureContainer(r, { healthCheck: healthy });
     expect(baseUrl).toBe('http://127.0.0.1:32811');
     const runCall = r.calls.find((c) => c[0] === 'run')!;
     expect(runCall).toContain('--init');
-    expect(runCall.join(' ')).toContain('/c:/data');
     expect(runCall.join(' ')).toContain('127.0.0.1:0:8932');
+    // Document-root-agnostic: no bind-mount.
+    expect(runCall.join(' ')).not.toContain('-v');
   });
 
   it('starts a stopped container instead of running a new one', async () => {
@@ -76,7 +75,7 @@ describe('ensureContainer', () => {
       start: { code: 0 },
       port: { stdout: '127.0.0.1:5000', code: 0 },
     });
-    await ensureContainer(r, { cacheRoot: '/c', healthCheck: healthy });
+    await ensureContainer(r, { healthCheck: healthy });
     expect(r.calls.some((c) => c[0] === 'start')).toBe(true);
     expect(r.calls.some((c) => c[0] === 'run')).toBe(false);
   });
@@ -88,23 +87,8 @@ describe('ensureContainer', () => {
       inspect: { stdout: 'true', code: 0 }, // running
       port: { stdout: '127.0.0.1:6000', code: 0 },
     });
-    await ensureContainer(r, { cacheRoot: '/c', healthCheck: healthy });
+    await ensureContainer(r, { healthCheck: healthy });
     expect(r.calls.some((c) => c[0] === 'run' || c[0] === 'start')).toBe(false);
-  });
-
-  it('adds --user on linux', async () => {
-    const r = fakeRunner({
-      version: { stdout: '29', code: 0 },
-      'image inspect': { code: 0 },
-      inspect: { code: 1 },
-      run: { code: 0 },
-      port: { stdout: '127.0.0.1:7000', code: 0 },
-    });
-    await ensureContainer(r, {
-      cacheRoot: '/c', platform: 'linux', uid: 1000, healthCheck: healthy,
-    });
-    const runCall = r.calls.find((c) => c[0] === 'run')!;
-    expect(runCall.join(' ')).toContain('--user 1000');
   });
 
   it('throws when the image is missing', async () => {
@@ -113,7 +97,7 @@ describe('ensureContainer', () => {
       'image inspect': { code: 1 },
     });
     await expect(ensureContainer(r, {
-      cacheRoot: '/c', healthCheck: healthy,
+      healthCheck: healthy,
     })).rejects.toBeInstanceOf(DockerUnavailableError);
   });
 });

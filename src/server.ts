@@ -6,7 +6,7 @@ import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { normaliseUrl } from './url.js';
 import {
-  getCacheRoot, getCachePath, getCacheDir,
+  getCacheRoot, getCacheDir, writeContent,
   readCacheMeta, writeCacheMeta, readMarkdown, readStructure,
 } from './cache.js';
 import {
@@ -66,9 +66,7 @@ export async function handleGet(
 
   let baseUrl: string;
   try {
-    ({ baseUrl } = await deps.ensureFn(deps.runner, {
-      cacheRoot: deps.cacheRoot,
-    }));
+    ({ baseUrl } = await deps.ensureFn(deps.runner, {}));
   } catch (err) {
     if (err instanceof DockerUnavailableError) {
       return text(formatError(args.uri, err.message), true);
@@ -78,7 +76,6 @@ export async function handleGet(
 
   const res = await deps.fetchFn(baseUrl, {
     url: normUrl,
-    cachePath: getCachePath(normUrl),
     timeoutSeconds,
     rawOnly,
     validators: existing
@@ -112,6 +109,12 @@ async function renderGet(
     case 'fetch-failed':
       return text(formatError(rawUri, res.reason), true);
     case 'fetched': {
+      const written = await writeContent(cacheDir, {
+        ext: res.content.ext,
+        raw: res.content.raw,
+        markdown: res.content.markdown,
+        sections: res.sections,
+      });
       const meta: CacheMeta = {
         cacheVersion: 2,
         url: normUrl,
@@ -130,14 +133,14 @@ async function renderGet(
         language: res.meta.language,
         wordCount: res.meta.wordCount,
         image: res.meta.image,
-        rawFile: res.files.raw,
-        markdownFile: res.files.markdown,
-        structureFile: res.files.structure,
+        rawFile: written.rawFile,
+        markdownFile: written.markdownFile,
+        structureFile: written.structureFile,
       };
       await writeCacheMeta(cacheDir, meta);
       return text(formatGet({
         meta, dir: cacheDir, sections: res.sections,
-        rawSize: res.bytes.raw, markdownSize: res.bytes.markdown,
+        rawSize: written.rawSize, markdownSize: written.markdownSize,
         source: 'fresh',
       }));
     }

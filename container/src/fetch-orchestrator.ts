@@ -1,5 +1,3 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import type { BrowserEngine, RenderResult } from './engine.js';
 import { USER_AGENT } from './engine.js';
 import {
@@ -12,10 +10,19 @@ const MAX_REDIRECTS = 5;
 
 export interface FetchInput {
   url: string;
-  cachePath: string; // "<domain>/<sha256>" relative to dataRoot
   timeoutSeconds: number;
   rawOnly: boolean;
   validators?: { etag?: string; lastModified?: string };
+}
+
+// The container is document-root-agnostic: it returns the fetched + converted
+// content and the host writes it into the session's document root. `raw` is
+// always base64 (uniform across text and binary); `markdown` is present for
+// converted HTML.
+export interface FetchContent {
+  ext: string;
+  raw: string; // base64-encoded raw bytes
+  markdown?: string;
 }
 
 export type FetchOutcome =
@@ -29,8 +36,7 @@ export type FetchOutcome =
       lastModified?: string;
       meta: DocumentMeta;
       sections: Section[];
-      files: { raw: string; markdown?: string; structure?: string };
-      bytes: { raw: number; markdown?: number };
+      content: FetchContent;
     }
   | { outcome: 'not-modified' }
   | { outcome: 'cross-host-redirect'; fromUrl: string; toUrl: string }
@@ -92,10 +98,10 @@ async function preflight(
 }
 
 // Orchestrates one fetch: pre-flight (redirects/validators), content-type
-// branch, render+convert HTML or save raw, write files under dataRoot.
+// branch, render+convert HTML or return raw bytes. Returns content; the host
+// writes it into the session's document root.
 export async function orchestrateFetch(
   engine: BrowserEngine,
-  dataRoot: string,
   input: FetchInput,
 ): Promise<FetchOutcome> {
   const timeoutMs = input.timeoutSeconds * 1000;
@@ -120,8 +126,6 @@ export async function orchestrateFetch(
     };
   }
 
-  const dir = join(dataRoot, input.cachePath);
-
   // The plain pre-flight was rejected with a status that commonly signals
   // bot protection (e.g. Stack Overflow returns 402). The pre-flight uses a
   // plain HTTP client that lacks CloakBrowser's fingerprint, so escalate to
@@ -129,7 +133,7 @@ export async function orchestrateFetch(
   // not. Skipped for raw_only (that explicitly wants the unrendered bytes).
   if (pre.kind === 'http-error') {
     if (!input.rawOnly && BLOCK_STATUSES.has(pre.status ?? 0)) {
-      const viaRender = await renderFetch(engine, input.url, dir, remaining());
+      const viaRender = await renderFetch(engine, input.url, remaining());
       if (viaRender) return viaRender;
     }
     return { outcome: 'http-error', status: pre.status ?? 0 };
@@ -138,11 +142,10 @@ export async function orchestrateFetch(
   const finalUrl = pre.finalUrl!;
   const contentType = pre.contentType ?? '';
   const category = classifyContentType(contentType);
-  await mkdir(dir, { recursive: true });
 
-  // Non-HTML, or caller asked for raw only: save the body, return the URI.
+  // Non-HTML, or caller asked for raw only: return the body bytes.
   if (category !== 'html' || input.rawOnly) {
-    return writeRaw(dir, {
+    return rawOutcome({
       finalUrl, contentType, status: pre.status ?? 200,
       etag: pre.etag, lastModified: pre.lastModified,
       body: pre.body ?? Buffer.alloc(0),
@@ -154,7 +157,7 @@ export async function orchestrateFetch(
   // response's validators (it is the authoritative resource response).
   const rendered = await safeRender(engine, finalUrl, remaining());
   const html = rendered?.html ?? (pre.body ? pre.body.toString('utf8') : '');
-  return convertWrite(dir, {
+  return convertOutcome({
     finalUrl,
     contentType,
     status: rendered?.status || pre.status || 200,
@@ -181,17 +184,16 @@ async function safeRender(
 }
 
 // Bot-block fallback: navigate with the stealth browser and, if it returns a
-// usable response, convert (HTML) or save the bytes (non-HTML). Returns null
+// usable response, convert (HTML) or return the bytes (non-HTML). Returns null
 // when the navigation also fails, so the caller reports the original error.
 async function renderFetch(
-  engine: BrowserEngine, url: string, dir: string, remainingMs: number,
+  engine: BrowserEngine, url: string, remainingMs: number,
 ): Promise<FetchOutcome | null> {
   const rendered = await safeRender(engine, url, remainingMs);
   if (!rendered || rendered.status >= 400) return null;
-  await mkdir(dir, { recursive: true });
   const category = classifyContentType(rendered.contentType);
   if (category === 'html' || rendered.contentType === '') {
-    return convertWrite(dir, {
+    return convertOutcome({
       finalUrl: rendered.finalUrl,
       contentType: rendered.contentType || 'text/html',
       status: rendered.status,
@@ -204,7 +206,7 @@ async function renderFetch(
   try {
     const res = await engine.request(rendered.finalUrl, baseHeaders(), remainingMs);
     if (res.status >= 400) return null;
-    return writeRaw(dir, {
+    return rawOutcome({
       finalUrl: rendered.finalUrl,
       contentType: rendered.contentType,
       status: res.status,
@@ -222,9 +224,7 @@ interface RawArgs {
   etag?: string; lastModified?: string; body: Buffer;
 }
 
-async function writeRaw(dir: string, a: RawArgs): Promise<FetchOutcome> {
-  const rawName = `raw.${getFileExtension(a.contentType)}`;
-  await writeFile(join(dir, rawName), a.body);
+function rawOutcome(a: RawArgs): FetchOutcome {
   return {
     outcome: 'fetched',
     status: a.status,
@@ -235,8 +235,10 @@ async function writeRaw(dir: string, a: RawArgs): Promise<FetchOutcome> {
     lastModified: a.lastModified,
     meta: {},
     sections: [],
-    files: { raw: rawName },
-    bytes: { raw: a.body.length },
+    content: {
+      ext: getFileExtension(a.contentType),
+      raw: a.body.toString('base64'),
+    },
   };
 }
 
@@ -245,17 +247,9 @@ interface ConvertArgs {
   etag?: string; lastModified?: string; html: string;
 }
 
-async function convertWrite(
-  dir: string, a: ConvertArgs,
-): Promise<FetchOutcome> {
+async function convertOutcome(a: ConvertArgs): Promise<FetchOutcome> {
   const { markdown, meta } = await convertHtml(a.html, a.finalUrl);
   const sections = buildStructure(markdown);
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, 'raw.html'), a.html, 'utf8');
-  await writeFile(join(dir, 'content.md'), markdown, 'utf8');
-  await writeFile(
-    join(dir, 'structure.json'), JSON.stringify(sections, null, 2), 'utf8',
-  );
   return {
     outcome: 'fetched',
     status: a.status,
@@ -266,10 +260,10 @@ async function convertWrite(
     lastModified: a.lastModified,
     meta,
     sections,
-    files: { raw: 'raw.html', markdown: 'content.md', structure: 'structure.json' },
-    bytes: {
-      raw: Buffer.byteLength(a.html, 'utf8'),
-      markdown: Buffer.byteLength(markdown, 'utf8'),
+    content: {
+      ext: 'html',
+      raw: Buffer.from(a.html, 'utf8').toString('base64'),
+      markdown,
     },
   };
 }

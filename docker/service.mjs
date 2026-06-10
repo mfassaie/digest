@@ -78,10 +78,6 @@ var CdpEngine = class {
   }
 };
 
-// src/fetch-orchestrator.ts
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-
 // src/engine.ts
 var USER_AGENT = "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Claude-User/1.0; +Claude-User@anthropic.com)";
 
@@ -227,7 +223,7 @@ async function preflight(engine2, input, timeoutMs) {
   }
   throw new Error(`too many redirects (>${MAX_REDIRECTS}) following ${input.url}`);
 }
-async function orchestrateFetch(engine2, dataRoot, input) {
+async function orchestrateFetch(engine2, input) {
   const timeoutMs = input.timeoutSeconds * 1e3;
   const deadline = Date.now() + timeoutMs;
   const remaining = () => Math.max(0, deadline - Date.now());
@@ -248,10 +244,9 @@ async function orchestrateFetch(engine2, dataRoot, input) {
       toUrl: pre.toUrl
     };
   }
-  const dir = join(dataRoot, input.cachePath);
   if (pre.kind === "http-error") {
     if (!input.rawOnly && BLOCK_STATUSES.has(pre.status ?? 0)) {
-      const viaRender = await renderFetch(engine2, input.url, dir, remaining());
+      const viaRender = await renderFetch(engine2, input.url, remaining());
       if (viaRender) return viaRender;
     }
     return { outcome: "http-error", status: pre.status ?? 0 };
@@ -259,9 +254,8 @@ async function orchestrateFetch(engine2, dataRoot, input) {
   const finalUrl = pre.finalUrl;
   const contentType = pre.contentType ?? "";
   const category = classifyContentType(contentType);
-  await mkdir(dir, { recursive: true });
   if (category !== "html" || input.rawOnly) {
-    return writeRaw(dir, {
+    return rawOutcome({
       finalUrl,
       contentType,
       status: pre.status ?? 200,
@@ -272,7 +266,7 @@ async function orchestrateFetch(engine2, dataRoot, input) {
   }
   const rendered = await safeRender(engine2, finalUrl, remaining());
   const html = rendered?.html ?? (pre.body ? pre.body.toString("utf8") : "");
-  return convertWrite(dir, {
+  return convertOutcome({
     finalUrl,
     contentType,
     status: rendered?.status || pre.status || 200,
@@ -290,13 +284,12 @@ async function safeRender(engine2, url, remainingMs) {
     return null;
   }
 }
-async function renderFetch(engine2, url, dir, remainingMs) {
+async function renderFetch(engine2, url, remainingMs) {
   const rendered = await safeRender(engine2, url, remainingMs);
   if (!rendered || rendered.status >= 400) return null;
-  await mkdir(dir, { recursive: true });
   const category = classifyContentType(rendered.contentType);
   if (category === "html" || rendered.contentType === "") {
-    return convertWrite(dir, {
+    return convertOutcome({
       finalUrl: rendered.finalUrl,
       contentType: rendered.contentType || "text/html",
       status: rendered.status,
@@ -308,7 +301,7 @@ async function renderFetch(engine2, url, dir, remainingMs) {
   try {
     const res = await engine2.request(rendered.finalUrl, baseHeaders(), remainingMs);
     if (res.status >= 400) return null;
-    return writeRaw(dir, {
+    return rawOutcome({
       finalUrl: rendered.finalUrl,
       contentType: rendered.contentType,
       status: res.status,
@@ -320,9 +313,7 @@ async function renderFetch(engine2, url, dir, remainingMs) {
     return null;
   }
 }
-async function writeRaw(dir, a) {
-  const rawName = `raw.${getFileExtension(a.contentType)}`;
-  await writeFile(join(dir, rawName), a.body);
+function rawOutcome(a) {
   return {
     outcome: "fetched",
     status: a.status,
@@ -333,21 +324,15 @@ async function writeRaw(dir, a) {
     lastModified: a.lastModified,
     meta: {},
     sections: [],
-    files: { raw: rawName },
-    bytes: { raw: a.body.length }
+    content: {
+      ext: getFileExtension(a.contentType),
+      raw: a.body.toString("base64")
+    }
   };
 }
-async function convertWrite(dir, a) {
+async function convertOutcome(a) {
   const { markdown, meta } = await convertHtml(a.html, a.finalUrl);
   const sections = buildStructure(markdown);
-  await mkdir(dir, { recursive: true });
-  await writeFile(join(dir, "raw.html"), a.html, "utf8");
-  await writeFile(join(dir, "content.md"), markdown, "utf8");
-  await writeFile(
-    join(dir, "structure.json"),
-    JSON.stringify(sections, null, 2),
-    "utf8"
-  );
   return {
     outcome: "fetched",
     status: a.status,
@@ -358,10 +343,10 @@ async function convertWrite(dir, a) {
     lastModified: a.lastModified,
     meta,
     sections,
-    files: { raw: "raw.html", markdown: "content.md", structure: "structure.json" },
-    bytes: {
-      raw: Buffer.byteLength(a.html, "utf8"),
-      markdown: Buffer.byteLength(markdown, "utf8")
+    content: {
+      ext: "html",
+      raw: Buffer.from(a.html, "utf8").toString("base64"),
+      markdown
     }
   };
 }
@@ -369,7 +354,6 @@ async function convertWrite(dir, a) {
 // src/service.ts
 var SERVICE_PORT = Number(process.env.SERVICE_PORT ?? 8932);
 var CDP_URL = process.env.CDP_URL ?? "http://127.0.0.1:9222";
-var DATA_ROOT = process.env.DATA_ROOT ?? "/data";
 var VERSION = process.env.DIGEST_VERSION ?? "0.2.0";
 var engine = new CdpEngine(CDP_URL);
 function sendJson(res, status, body) {
@@ -388,12 +372,9 @@ async function readBody(req) {
 function validateInput(raw) {
   if (typeof raw !== "object" || raw === null) return null;
   const r = raw;
-  if (typeof r.url !== "string" || typeof r.cachePath !== "string") {
-    return null;
-  }
+  if (typeof r.url !== "string") return null;
   return {
     url: r.url,
-    cachePath: r.cachePath,
     timeoutSeconds: typeof r.timeoutSeconds === "number" ? r.timeoutSeconds : 30,
     rawOnly: r.rawOnly === true,
     validators: typeof r.validators === "object" && r.validators !== null ? r.validators : void 0
@@ -420,12 +401,12 @@ async function handle(req, res) {
     if (!input) {
       sendJson(res, 400, {
         outcome: "fetch-failed",
-        reason: "url and cachePath required"
+        reason: "url required"
       });
       return;
     }
     try {
-      const result = await orchestrateFetch(engine, DATA_ROOT, input);
+      const result = await orchestrateFetch(engine, input);
       const code = result.outcome === "timeout" ? 504 : result.outcome === "fetch-failed" ? 502 : 200;
       sendJson(res, code, result);
     } catch (err) {

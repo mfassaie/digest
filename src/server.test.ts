@@ -55,8 +55,11 @@ const fetched: ContainerFetchResponse = {
   etag: 'W/"x"',
   meta: { title: 'Doc Title', description: 'Desc', wordCount: 100 },
   sections,
-  files: { raw: 'raw.html', markdown: 'content.md', structure: 'structure.json' },
-  bytes: { raw: 5000, markdown: 1200 },
+  content: {
+    ext: 'html',
+    raw: Buffer.from('<html><body>hi</body></html>', 'utf8').toString('base64'),
+    markdown: '# Title\nIntro.\n\n## Install\nRun it.\n',
+  },
 };
 
 describe('handleGet', () => {

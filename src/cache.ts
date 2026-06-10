@@ -1,17 +1,12 @@
 import { mkdir, writeFile, readFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { homedir } from 'node:os';
+import { getCacheRoot } from './config.js';
 import type { CacheMeta, Section } from './types.js';
 
-export function getCacheRoot(override?: string): string {
-  return override ?? join(
-    homedir(), '.claude', 'digest', 'cache',
-  );
-}
+export { getCacheRoot };
 
-// Relative cache path "<domain>/<sha256(url)>" sent to the container, which
-// writes files under <dataRoot>/<cachePath>/.
+// Relative cache path "<domain>/<sha256(url)>".
 export function getCachePath(url: string): string {
   const parsed = new URL(url);
   const hash = createHash('sha256').update(url).digest('hex');
@@ -19,7 +14,50 @@ export function getCachePath(url: string): string {
 }
 
 export function getCacheDir(url: string, cacheRoot?: string): string {
-  return join(getCacheRoot(cacheRoot), getCachePath(url));
+  return join(cacheRoot ?? getCacheRoot(), getCachePath(url));
+}
+
+export interface ContentToWrite {
+  ext: string;
+  raw: string; // base64
+  markdown?: string;
+  sections: Section[];
+}
+
+// Write the content the container returned into this session's cache dir.
+// Returns the file names and byte sizes for the response.
+export async function writeContent(
+  dir: string, content: ContentToWrite,
+): Promise<{
+  rawFile: string;
+  markdownFile?: string;
+  structureFile?: string;
+  rawSize: number;
+  markdownSize?: number;
+}> {
+  await mkdir(dir, { recursive: true });
+  const rawBytes = Buffer.from(content.raw, 'base64');
+  const rawFile = `raw.${content.ext}`;
+  await writeFile(join(dir, rawFile), rawBytes);
+
+  let markdownFile: string | undefined;
+  let markdownSize: number | undefined;
+  if (content.markdown !== undefined) {
+    markdownFile = 'content.md';
+    await writeFile(join(dir, markdownFile), content.markdown, 'utf8');
+    markdownSize = Buffer.byteLength(content.markdown, 'utf8');
+    await writeFile(
+      join(dir, 'structure.json'),
+      JSON.stringify(content.sections, null, 2), 'utf8',
+    );
+  }
+  return {
+    rawFile,
+    markdownFile,
+    structureFile: markdownFile ? 'structure.json' : undefined,
+    rawSize: rawBytes.length,
+    markdownSize,
+  };
 }
 
 export async function writeCacheMeta(

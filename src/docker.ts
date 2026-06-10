@@ -76,17 +76,14 @@ async function mappedPort(r: CommandRunner): Promise<number> {
   return Number(m[1]);
 }
 
-// Ensure the container is running and healthy, returning its base URL.
-// On Linux the cache dir is bind-mounted with the caller's uid so files are
-// not root-owned; Docker Desktop (Win/macOS) handles ownership in the VM.
+// Ensure the (single, shared) container is running and healthy, returning its
+// base URL. The container is document-root-agnostic — it returns content over
+// HTTP and the host writes it — so there is no bind-mount.
 export async function ensureContainer(
   r: CommandRunner,
   opts: {
-    cacheRoot: string;
-    platform?: NodeJS.Platform;
-    uid?: number;
     healthCheck?: (baseUrl: string) => Promise<{ cdpConnected: boolean }>;
-  },
+  } = {},
 ): Promise<{ baseUrl: string }> {
   await detectDocker(r);
   if (!await imagePresent(r)) {
@@ -100,13 +97,8 @@ export async function ensureContainer(
     const args = [
       'run', '-d', '--name', CONTAINER, '--init',
       '-p', `127.0.0.1:0:${SERVICE_PORT}`,
-      '-v', `${opts.cacheRoot}:/data`,
+      IMAGE,
     ];
-    const platform = opts.platform ?? process.platform;
-    if (platform === 'linux' && opts.uid !== undefined) {
-      args.push('--user', String(opts.uid));
-    }
-    args.push(IMAGE);
     const res = await r.exec('docker', args, 30_000);
     if (res.code !== 0) {
       throw new DockerUnavailableError(
