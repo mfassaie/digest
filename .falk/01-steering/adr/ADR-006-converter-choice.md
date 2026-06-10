@@ -40,12 +40,36 @@ fixtures are GFM-representable).
 
 ## Decision
 
-**Provisional winner: mdream.** It leads the section-structure dimension
-the user prioritised (heading 93.3), has the best recall (96.5), is ~15×
-faster than the incumbent, and adds the smallest image footprint among
-Node-native options.
+**Default for Phase B: defuddle (incumbent). Final choice re-reviewed after
+the Phase B real-corpus eval.**
 
-This is recorded as **provisional**, not locked, for three honest reasons:
+The synthetic leaderboard put mdream first, but that ranking is inflated by
+perf (10%) and image-size (10%) — dimensions that are near-irrelevant in our
+architecture, where conversion (12–182 ms) is noise next to browser render +
+network. On capability that actually serves v2, defuddle is the stronger
+choice:
+
+- **Metadata for free.** `Defuddle` returns title, description, author,
+  published date, site, domain, favicon, lead image, language, wordCount and
+  parsed schema.org data alongside the markdown — this populates `meta.json`
+  and gives the read-engine a `description` summary fallback. mdream and the
+  turndown/rehype pipelines return none of this; we would build it
+  separately.
+- **Standardisation.** defuddle normalises footnotes, headings, code blocks
+  (with language detection) and math — directly serving the section-structure
+  goal, and the reason it scored 92 on headings without post-processing.
+- **Highest extraction precision** (95.7) — it strips boilerplate most
+  thoroughly (configurable removal of ads/social/low-scoring/content
+  patterns).
+- **Site-specific extractors** (YouTube transcripts, Reddit, GitHub, HN,
+  Twitter/X) the generic converters lack.
+
+mdream remains the leading challenger (best recall + heading + speed) and the
+`Converter` interface keeps the swap to a one-file change. The deciding
+question — whether defuddle's precision lead holds on heavy real-world
+boilerplate — is answered by the Phase B real-corpus eval.
+
+### mdream caveats (why it is not the default)
 
 1. **Precision gap.** mdream's precision (89.6) is the lowest of the
    eligible extractors — it leaks more boilerplate than defuddle (95.7) or

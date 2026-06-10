@@ -1,0 +1,11 @@
+{
+  "name": "falk-document-container-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "dependencies": {
+    "defuddle": "^0.15.0",
+    "linkedom": "^0.18.12",
+    "playwright-core": "^1.49.1"
+  }
+}
