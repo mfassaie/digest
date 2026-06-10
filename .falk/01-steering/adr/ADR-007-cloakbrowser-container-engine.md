@@ -58,17 +58,27 @@ The wrapper code we author is MIT; only the base binary is restricted.
   mapped volume.
 - amd64-only base image; Apple Silicon runs under emulation (documented).
 
-## Known limitation: pre-flight bypasses stealth
+## Pre-flight bot-block escalation (implemented 2026-06-10)
 
 The orchestrator does a pre-flight request (Playwright `APIRequestContext`)
-to resolve redirects, validators (ETag/304) and content-type before
-deciding whether to render. That request is a plain HTTP call — it does
-**not** carry CloakBrowser's browser-level stealth (TLS/JS fingerprint).
-Real-corpus testing (2026-06-10) found Stack Overflow returns **HTTP 402**
-to it, so a bot-protected page can be rejected at pre-flight even though a
-full stealth navigation might have succeeded.
+to resolve redirects, validators (ETag/304) and content-type. That request
+is a plain HTTP client and does **not** carry CloakBrowser's browser-level
+stealth, so bot-protected sites can reject it (Stack Overflow returns
+**HTTP 402**).
 
-Follow-up (not yet done): for the initial hop, navigate HTML with the
-stealth browser (`page.goto`) and derive status/content-type/redirect from
-the navigation response, reserving the plain request for conditional
-revalidation of already-cached resources. Tracked as a task.
+Fix: when the pre-flight is rejected with a status that commonly signals bot
+protection (`402, 403, 429, 503`) and the caller did not ask for `raw_only`,
+the orchestrator **escalates to a full stealth navigation** (`page.goto`)
+and uses that response — converting if HTML, else fetching the bytes. The
+normal 200 path already rendered HTML through the stealth browser; this
+closes the gap where the plain pre-flight was blocked before we ever
+rendered. A genuine `404`/`500` does not escalate (no wasted render).
+
+**Limitation that remains:** stealth navigation only helps where the block
+is fingerprint/UA/TLS-based. Sites blocking by IP reputation or aggressive
+heuristics can still reject the browser — Stack Overflow continued to return
+402 to the stealth navigation (and to a fingerprint-seeded connection) from
+a containerised environment. Those are not bypassable here and are reported
+as `http-error` honestly. A per-fetch CloakBrowser fingerprint seed
+(`?fingerprint=<seed>` on the CDP URL) is a possible future enhancement for
+fingerprint diversity, but did not change the IP-based blocks observed.

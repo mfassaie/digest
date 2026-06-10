@@ -75,6 +75,7 @@ export class CdpEngine implements BrowserEngine {
         finalUrl: page.url(),
         status: resp?.status() ?? 200,
         contentType: respHeaders['content-type'] ?? 'text/html',
+        headers: respHeaders,
         html,
       };
     } finally {

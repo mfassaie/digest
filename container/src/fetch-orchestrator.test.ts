@@ -40,6 +40,7 @@ class FakeEngine implements BrowserEngine {
       finalUrl: this.renderResult?.finalUrl ?? url,
       status: this.renderResult?.status ?? 200,
       contentType: this.renderResult?.contentType ?? 'text/html',
+      headers: this.renderResult?.headers ?? {},
       html: this.renderResult?.html
         ?? '<html><body><main><h1>Rendered</h1>'
           + '<p>Body content here for the page.</p></main></body></html>',
@@ -152,6 +153,56 @@ describe('orchestrateFetch', () => {
     expect(out.outcome).toBe('http-error');
     if (out.outcome !== 'http-error') return;
     expect(out.status).toBe(404);
+  });
+
+  it('does not escalate a plain 404 to the browser', async () => {
+    const engine = new FakeEngine([{ status: 404 }]);
+    const out = await orchestrateFetch(engine, dataRoot, {
+      ...base, url: 'https://example.com/missing',
+    });
+    expect(engine.rendered).toBe(false);
+    expect(out.outcome).toBe('http-error');
+  });
+
+  it('escalates a bot-block status (402) to a stealth render', async () => {
+    // Plain pre-flight is blocked; the stealth browser succeeds.
+    const engine = new FakeEngine([{ status: 402 }], {
+      contentType: 'text/html',
+      html: '<html><body><main><h1>Unblocked</h1>'
+        + '<p>Real content after stealth navigation.</p></main></body></html>',
+    });
+    const out = await orchestrateFetch(engine, dataRoot, {
+      ...base, url: 'https://stackoverflow.com/q/1',
+    });
+    expect(engine.rendered).toBe(true);
+    expect(out.outcome).toBe('fetched');
+    if (out.outcome !== 'fetched') return;
+    expect(out.files.markdown).toBe('content.md');
+    const md = readFileSync(
+      join(dataRoot, base.cachePath, 'content.md'), 'utf8',
+    );
+    expect(md).toContain('Unblocked');
+  });
+
+  it('does not escalate a bot-block status when raw_only', async () => {
+    const engine = new FakeEngine([{ status: 403 }]);
+    const out = await orchestrateFetch(engine, dataRoot, {
+      ...base, url: 'https://example.com/p', rawOnly: true,
+    });
+    expect(engine.rendered).toBe(false);
+    expect(out.outcome).toBe('http-error');
+  });
+
+  it('reports the original error when the stealth render also fails', async () => {
+    // 403 pre-flight, and the render returns 403 too.
+    const engine = new FakeEngine([{ status: 403 }], { status: 403 });
+    const out = await orchestrateFetch(engine, dataRoot, {
+      ...base, url: 'https://example.com/blocked',
+    });
+    expect(engine.rendered).toBe(true);
+    expect(out.outcome).toBe('http-error');
+    if (out.outcome !== 'http-error') return;
+    expect(out.status).toBe(403);
   });
 
   it('falls back to preflight body if render fails', async () => {

@@ -66,6 +66,7 @@ var CdpEngine = class {
         finalUrl: page.url(),
         status: resp?.status() ?? 200,
         contentType: respHeaders["content-type"] ?? "text/html",
+        headers: respHeaders,
         html
       };
     } finally {
@@ -240,9 +241,6 @@ async function orchestrateFetch(engine2, dataRoot, input) {
     };
   }
   if (pre.kind === "not-modified") return { outcome: "not-modified" };
-  if (pre.kind === "http-error") {
-    return { outcome: "http-error", status: pre.status ?? 0 };
-  }
   if (pre.kind === "cross-host") {
     return {
       outcome: "cross-host-redirect",
@@ -250,65 +248,119 @@ async function orchestrateFetch(engine2, dataRoot, input) {
       toUrl: pre.toUrl
     };
   }
+  const dir = join(dataRoot, input.cachePath);
+  if (pre.kind === "http-error") {
+    if (!input.rawOnly && BLOCK_STATUSES.has(pre.status ?? 0)) {
+      const viaRender = await renderFetch(engine2, input.url, dir, remaining());
+      if (viaRender) return viaRender;
+    }
+    return { outcome: "http-error", status: pre.status ?? 0 };
+  }
   const finalUrl = pre.finalUrl;
   const contentType = pre.contentType ?? "";
   const category = classifyContentType(contentType);
-  const dir = join(dataRoot, input.cachePath);
   await mkdir(dir, { recursive: true });
   if (category !== "html" || input.rawOnly) {
-    const ext = getFileExtension(contentType);
-    const rawName2 = `raw.${ext}`;
-    const body = pre.body ?? Buffer.alloc(0);
-    await writeFile(join(dir, rawName2), body);
-    return {
-      outcome: "fetched",
-      status: pre.status ?? 200,
+    return writeRaw(dir, {
       finalUrl,
       contentType,
-      category,
+      status: pre.status ?? 200,
       etag: pre.etag,
       lastModified: pre.lastModified,
-      meta: {},
-      sections: [],
-      files: { raw: rawName2 },
-      bytes: { raw: body.length }
-    };
+      body: pre.body ?? Buffer.alloc(0)
+    });
   }
-  let html;
-  let status = pre.status ?? 200;
+  const rendered = await safeRender(engine2, finalUrl, remaining());
+  const html = rendered?.html ?? (pre.body ? pre.body.toString("utf8") : "");
+  return convertWrite(dir, {
+    finalUrl,
+    contentType,
+    status: rendered?.status || pre.status || 200,
+    etag: rendered?.headers["etag"] ?? pre.etag,
+    lastModified: rendered?.headers["last-modified"] ?? pre.lastModified,
+    html
+  });
+}
+var BLOCK_STATUSES = /* @__PURE__ */ new Set([402, 403, 429, 503]);
+async function safeRender(engine2, url, remainingMs) {
+  if (remainingMs < 500) return null;
   try {
-    if (remaining() < 500) throw new Error("no time budget to render");
-    const rendered = await engine2.render(finalUrl, baseHeaders(), remaining());
-    html = rendered.html;
-    status = rendered.status || status;
+    return await engine2.render(url, baseHeaders(), remainingMs);
   } catch {
-    html = pre.body ? pre.body.toString("utf8") : "";
+    return null;
   }
-  const { markdown, meta } = await convertHtml(html, finalUrl);
+}
+async function renderFetch(engine2, url, dir, remainingMs) {
+  const rendered = await safeRender(engine2, url, remainingMs);
+  if (!rendered || rendered.status >= 400) return null;
+  await mkdir(dir, { recursive: true });
+  const category = classifyContentType(rendered.contentType);
+  if (category === "html" || rendered.contentType === "") {
+    return convertWrite(dir, {
+      finalUrl: rendered.finalUrl,
+      contentType: rendered.contentType || "text/html",
+      status: rendered.status,
+      etag: rendered.headers["etag"],
+      lastModified: rendered.headers["last-modified"],
+      html: rendered.html
+    });
+  }
+  try {
+    const res = await engine2.request(rendered.finalUrl, baseHeaders(), remainingMs);
+    if (res.status >= 400) return null;
+    return writeRaw(dir, {
+      finalUrl: rendered.finalUrl,
+      contentType: rendered.contentType,
+      status: res.status,
+      etag: res.headers["etag"],
+      lastModified: res.headers["last-modified"],
+      body: await res.body()
+    });
+  } catch {
+    return null;
+  }
+}
+async function writeRaw(dir, a) {
+  const rawName = `raw.${getFileExtension(a.contentType)}`;
+  await writeFile(join(dir, rawName), a.body);
+  return {
+    outcome: "fetched",
+    status: a.status,
+    finalUrl: a.finalUrl,
+    contentType: a.contentType,
+    category: classifyContentType(a.contentType),
+    etag: a.etag,
+    lastModified: a.lastModified,
+    meta: {},
+    sections: [],
+    files: { raw: rawName },
+    bytes: { raw: a.body.length }
+  };
+}
+async function convertWrite(dir, a) {
+  const { markdown, meta } = await convertHtml(a.html, a.finalUrl);
   const sections = buildStructure(markdown);
-  const rawName = "raw.html";
-  const mdName = "content.md";
-  const structName = "structure.json";
-  await writeFile(join(dir, rawName), html, "utf8");
-  await writeFile(join(dir, mdName), markdown, "utf8");
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, "raw.html"), a.html, "utf8");
+  await writeFile(join(dir, "content.md"), markdown, "utf8");
   await writeFile(
-    join(dir, structName),
+    join(dir, "structure.json"),
     JSON.stringify(sections, null, 2),
     "utf8"
   );
   return {
     outcome: "fetched",
-    status,
-    finalUrl,
-    contentType,
-    category,
-    etag: pre.etag,
-    lastModified: pre.lastModified,
+    status: a.status,
+    finalUrl: a.finalUrl,
+    contentType: a.contentType,
+    category: "html",
+    etag: a.etag,
+    lastModified: a.lastModified,
     meta,
     sections,
-    files: { raw: rawName, markdown: mdName, structure: structName },
+    files: { raw: "raw.html", markdown: "content.md", structure: "structure.json" },
     bytes: {
-      raw: Buffer.byteLength(html, "utf8"),
+      raw: Buffer.byteLength(a.html, "utf8"),
       markdown: Buffer.byteLength(markdown, "utf8")
     }
   };

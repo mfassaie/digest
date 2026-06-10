@@ -12,6 +12,7 @@ export interface RenderResult {
   finalUrl: string;
   status: number;
   contentType: string;
+  headers: Record<string, string>;
   html: string;
 }
 

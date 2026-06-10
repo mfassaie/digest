@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { BrowserEngine } from './engine.js';
+import type { BrowserEngine, RenderResult } from './engine.js';
 import { USER_AGENT } from './engine.js';
 import {
   classifyContentType, getFileExtension, convertHtml,
@@ -113,9 +113,6 @@ export async function orchestrateFetch(
   }
 
   if (pre.kind === 'not-modified') return { outcome: 'not-modified' };
-  if (pre.kind === 'http-error') {
-    return { outcome: 'http-error', status: pre.status ?? 0 };
-  }
   if (pre.kind === 'cross-host') {
     return {
       outcome: 'cross-host-redirect',
@@ -123,71 +120,155 @@ export async function orchestrateFetch(
     };
   }
 
+  const dir = join(dataRoot, input.cachePath);
+
+  // The plain pre-flight was rejected with a status that commonly signals
+  // bot protection (e.g. Stack Overflow returns 402). The pre-flight uses a
+  // plain HTTP client that lacks CloakBrowser's fingerprint, so escalate to
+  // a full stealth navigation, which may pass where the plain request did
+  // not. Skipped for raw_only (that explicitly wants the unrendered bytes).
+  if (pre.kind === 'http-error') {
+    if (!input.rawOnly && BLOCK_STATUSES.has(pre.status ?? 0)) {
+      const viaRender = await renderFetch(engine, input.url, dir, remaining());
+      if (viaRender) return viaRender;
+    }
+    return { outcome: 'http-error', status: pre.status ?? 0 };
+  }
+
   const finalUrl = pre.finalUrl!;
   const contentType = pre.contentType ?? '';
   const category = classifyContentType(contentType);
-  const dir = join(dataRoot, input.cachePath);
   await mkdir(dir, { recursive: true });
 
   // Non-HTML, or caller asked for raw only: save the body, return the URI.
   if (category !== 'html' || input.rawOnly) {
-    const ext = getFileExtension(contentType);
-    const rawName = `raw.${ext}`;
-    const body = pre.body ?? Buffer.alloc(0);
-    await writeFile(join(dir, rawName), body);
-    return {
-      outcome: 'fetched',
-      status: pre.status ?? 200,
-      finalUrl,
-      contentType,
-      category,
-      etag: pre.etag,
-      lastModified: pre.lastModified,
-      meta: {},
-      sections: [],
-      files: { raw: rawName },
-      bytes: { raw: body.length },
-    };
+    return writeRaw(dir, {
+      finalUrl, contentType, status: pre.status ?? 200,
+      etag: pre.etag, lastModified: pre.lastModified,
+      body: pre.body ?? Buffer.alloc(0),
+    });
   }
 
   // HTML: render (JS executes) then convert. Fall back to the pre-flight
-  // body if rendering fails or runs out of time.
-  let html: string;
-  let status = pre.status ?? 200;
-  try {
-    if (remaining() < 500) throw new Error('no time budget to render');
-    const rendered = await engine.render(finalUrl, baseHeaders(), remaining());
-    html = rendered.html;
-    status = rendered.status || status;
-  } catch {
-    html = pre.body ? pre.body.toString('utf8') : '';
-  }
-
-  const { markdown, meta } = await convertHtml(html, finalUrl);
-  const sections = buildStructure(markdown);
-
-  const rawName = 'raw.html';
-  const mdName = 'content.md';
-  const structName = 'structure.json';
-  await writeFile(join(dir, rawName), html, 'utf8');
-  await writeFile(join(dir, mdName), markdown, 'utf8');
-  await writeFile(
-    join(dir, structName), JSON.stringify(sections, null, 2), 'utf8',
-  );
-
-  return {
-    outcome: 'fetched',
-    status,
+  // body if rendering fails or runs out of time. Prefer the render
+  // response's validators (it is the authoritative resource response).
+  const rendered = await safeRender(engine, finalUrl, remaining());
+  const html = rendered?.html ?? (pre.body ? pre.body.toString('utf8') : '');
+  return convertWrite(dir, {
     finalUrl,
     contentType,
-    category,
-    etag: pre.etag,
-    lastModified: pre.lastModified,
+    status: rendered?.status || pre.status || 200,
+    etag: rendered?.headers['etag'] ?? pre.etag,
+    lastModified: rendered?.headers['last-modified'] ?? pre.lastModified,
+    html,
+  });
+}
+
+// Statuses that commonly indicate bot protection rather than a genuine
+// client/server error, worth retrying through the stealth browser. (401 is
+// excluded — it means real auth is required, which rendering will not fix.)
+const BLOCK_STATUSES = new Set([402, 403, 429, 503]);
+
+async function safeRender(
+  engine: BrowserEngine, url: string, remainingMs: number,
+): Promise<RenderResult | null> {
+  if (remainingMs < 500) return null;
+  try {
+    return await engine.render(url, baseHeaders(), remainingMs);
+  } catch {
+    return null;
+  }
+}
+
+// Bot-block fallback: navigate with the stealth browser and, if it returns a
+// usable response, convert (HTML) or save the bytes (non-HTML). Returns null
+// when the navigation also fails, so the caller reports the original error.
+async function renderFetch(
+  engine: BrowserEngine, url: string, dir: string, remainingMs: number,
+): Promise<FetchOutcome | null> {
+  const rendered = await safeRender(engine, url, remainingMs);
+  if (!rendered || rendered.status >= 400) return null;
+  await mkdir(dir, { recursive: true });
+  const category = classifyContentType(rendered.contentType);
+  if (category === 'html' || rendered.contentType === '') {
+    return convertWrite(dir, {
+      finalUrl: rendered.finalUrl,
+      contentType: rendered.contentType || 'text/html',
+      status: rendered.status,
+      etag: rendered.headers['etag'],
+      lastModified: rendered.headers['last-modified'],
+      html: rendered.html,
+    });
+  }
+  // Non-HTML behind bot protection: best-effort fetch of the bytes.
+  try {
+    const res = await engine.request(rendered.finalUrl, baseHeaders(), remainingMs);
+    if (res.status >= 400) return null;
+    return writeRaw(dir, {
+      finalUrl: rendered.finalUrl,
+      contentType: rendered.contentType,
+      status: res.status,
+      etag: res.headers['etag'],
+      lastModified: res.headers['last-modified'],
+      body: await res.body(),
+    });
+  } catch {
+    return null;
+  }
+}
+
+interface RawArgs {
+  finalUrl: string; contentType: string; status: number;
+  etag?: string; lastModified?: string; body: Buffer;
+}
+
+async function writeRaw(dir: string, a: RawArgs): Promise<FetchOutcome> {
+  const rawName = `raw.${getFileExtension(a.contentType)}`;
+  await writeFile(join(dir, rawName), a.body);
+  return {
+    outcome: 'fetched',
+    status: a.status,
+    finalUrl: a.finalUrl,
+    contentType: a.contentType,
+    category: classifyContentType(a.contentType),
+    etag: a.etag,
+    lastModified: a.lastModified,
+    meta: {},
+    sections: [],
+    files: { raw: rawName },
+    bytes: { raw: a.body.length },
+  };
+}
+
+interface ConvertArgs {
+  finalUrl: string; contentType: string; status: number;
+  etag?: string; lastModified?: string; html: string;
+}
+
+async function convertWrite(
+  dir: string, a: ConvertArgs,
+): Promise<FetchOutcome> {
+  const { markdown, meta } = await convertHtml(a.html, a.finalUrl);
+  const sections = buildStructure(markdown);
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, 'raw.html'), a.html, 'utf8');
+  await writeFile(join(dir, 'content.md'), markdown, 'utf8');
+  await writeFile(
+    join(dir, 'structure.json'), JSON.stringify(sections, null, 2), 'utf8',
+  );
+  return {
+    outcome: 'fetched',
+    status: a.status,
+    finalUrl: a.finalUrl,
+    contentType: a.contentType,
+    category: 'html',
+    etag: a.etag,
+    lastModified: a.lastModified,
     meta,
     sections,
-    files: { raw: rawName, markdown: mdName, structure: structName },
+    files: { raw: 'raw.html', markdown: 'content.md', structure: 'structure.json' },
     bytes: {
-      raw: Buffer.byteLength(html, 'utf8'),
+      raw: Buffer.byteLength(a.html, 'utf8'),
       markdown: Buffer.byteLength(markdown, 'utf8'),
     },
   };
