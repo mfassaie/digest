@@ -1,0 +1,5 @@
+{
+  "url": "https://container-guide.example/guide/intro",
+  "category": "cjk",
+  "notes": "Short Japanese-language guide with CJK headings, paragraphs and a list, wrapped in nav/sidebar/footer boilerplate. Tests that multibyte CJK content is preserved intact through extraction and markdown conversion."
+}

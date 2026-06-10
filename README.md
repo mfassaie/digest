@@ -49,6 +49,21 @@ Add the following to your `.mcp.json`:
 }
 ```
 
+On Windows, `npx` must be wrapped with `cmd /c` (the installer does
+this automatically):
+
+```json
+{
+  "mcpServers": {
+    "webfetch-plus": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "webfetch-plus"],
+      "env": { "NODE_OPTIONS": "--use-system-ca" }
+    }
+  }
+}
+```
+
 ### Global install
 
 To install for all projects (user-level config):

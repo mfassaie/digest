@@ -1,0 +1,5 @@
+{
+  "url": "https://orbit.example/changelog",
+  "category": "deep-lists",
+  "notes": "Changelog page with nav/footer boilerplate and deeply nested unordered and ordered lists (3-4 levels). Tests nested list indentation and ordered/unordered marker fidelity."
+}

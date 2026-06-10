@@ -1,0 +1,5 @@
+{
+  "url": "https://soup.example/telemetry",
+  "category": "malformed",
+  "notes": "Pathological input: a script with an unterminated string, an unclosed HTML comment, raw < and & characters, broken markup bytes, and a couple of real headings buried inside. Robustness/crash test only. No golden."
+}

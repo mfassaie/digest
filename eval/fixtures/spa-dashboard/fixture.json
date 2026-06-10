@@ -1,0 +1,5 @@
+{
+  "url": "https://fleet.example/dashboard",
+  "category": "spa",
+  "notes": "Post-render DOM of a single-page app: an app-shell div#root containing a fully hydrated dashboard with an h1, two h2 sections, a GFM-representable table, and a list, wrapped in a nav app bar and footer. Tests extraction from serialised SPA markup. Golden is main content only."
+}

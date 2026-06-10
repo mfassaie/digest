@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Token Bucket Rate Limiting — Spec</title>
+</head>
+<body>
+  <header class="site-header">
+    <nav aria-label="primary">
+      <a href="/">Home</a>
+      <a href="/specs">Specs</a>
+    </nav>
+  </header>
+  <main>
+    <article>
+      <h1>Token Bucket Rate Limiting</h1>
+      <p>This specification defines a token bucket algorithm for limiting
+      request rates. Each client is assigned a bucket of capacity
+      <em>C</em> that refills at a fixed rate <em>r</em><sup><a href="#fn1">1</a></sup>.</p>
+      <h2>Algorithm</h2>
+      <p>On each request the server removes one token from the bucket. If
+      no token is available the request is rejected with status 429<sup><a href="#fn2">2</a></sup>.
+      Tokens accrue continuously rather than in discrete intervals, which
+      smooths short bursts<sup><a href="#fn3">3</a></sup>.</p>
+      <h2>Parameters</h2>
+      <p>Implementations must expose both <em>C</em> and <em>r</em> as
+      configurable values. The default capacity is 60 tokens with a refill
+      rate of one token per second.</p>
+      <section class="footnotes">
+        <h2>Notes</h2>
+        <ol>
+          <li id="fn1">Refill is computed lazily from the elapsed time since the last request.</li>
+          <li id="fn2">The response should include a <code>Retry-After</code> header.</li>
+          <li id="fn3">A burst up to the full capacity <em>C</em> is permitted when the bucket is full.</li>
+        </ol>
+      </section>
+    </article>
+  </main>
+  <footer class="site-footer">
+    <p>&copy; 2026 Standards Group.</p>
+  </footer>
+</body>
+</html>

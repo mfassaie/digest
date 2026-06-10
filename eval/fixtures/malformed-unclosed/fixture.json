@@ -1,0 +1,5 @@
+{
+  "url": "https://warehouse.example/reports/inventory",
+  "category": "malformed",
+  "notes": "Broken HTML with unclosed div/p/li tags, a table missing </td>/</tr>, and mismatched nesting. Robustness test only — the converter must not crash. No golden."
+}

@@ -1,0 +1,5 @@
+{
+  "url": "https://standards.example/specs/token-bucket",
+  "category": "footnotes",
+  "notes": "Spec page with inline superscript footnote references and a footnotes section at the bottom. Tests that footnote markers and the notes list survive extraction. Golden uses GFM [^n] reference style."
+}

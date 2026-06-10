@@ -1,0 +1,5 @@
+{
+  "url": "https://cafe.example/menu/notes",
+  "category": "malformed",
+  "notes": "HTML with broken and mixed entities (&amp without semicolon, &#xZZ;, lone &, unknown &notanentity;), a meta charset (ISO-8859-1) that disagrees with the actual UTF-8 content, plus real readable text. Robustness test only. No golden."
+}
