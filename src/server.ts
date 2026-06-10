@@ -18,6 +18,7 @@ import { extractSection, formatOutline } from './structure.js';
 import { extractiveEngine, type ReadEngine } from './read-engine.js';
 import { formatGet, formatError, formatRedirect } from './response.js';
 import { getVersion } from './version.js';
+import { logLine, startBrowserLogFollower } from './logging.js';
 import type { CacheMeta, ContainerFetchResponse } from './types.js';
 
 const CONVERTER = 'defuddle';
@@ -28,6 +29,9 @@ export interface ServerDeps {
   fetchFn: typeof containerFetch;
   ensureFn: typeof ensureContainer;
   engine: ReadEngine;
+  // Called once the container is confirmed ready (starts the log follower).
+  // Omitted in tests so no `docker logs` process is spawned.
+  onContainerReady?: () => void;
 }
 
 function defaultDeps(): ServerDeps {
@@ -37,6 +41,7 @@ function defaultDeps(): ServerDeps {
     fetchFn: containerFetch,
     ensureFn: ensureContainer,
     engine: extractiveEngine,
+    onContainerReady: startBrowserLogFollower,
   };
 }
 
@@ -67,6 +72,7 @@ export async function handleGet(
   let baseUrl: string;
   try {
     ({ baseUrl } = await deps.ensureFn(deps.runner, {}));
+    deps.onContainerReady?.();
   } catch (err) {
     if (err instanceof DockerUnavailableError) {
       return text(formatError(args.uri, err.message), true);
@@ -262,4 +268,5 @@ export async function main() {
   const server = createServer();
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  logLine('info', `digest ${getVersion()} ready (cache ${getCacheRoot()})`);
 }

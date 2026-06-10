@@ -28,6 +28,15 @@ async function main(): Promise<void> {
   console.log('\n--- read full (first 120 chars) ---');
   console.log(read.content[0].text.slice(0, 120));
 
+  // A second fetch generates fresh container output for the log follower.
+  await handleGet({ uri: 'https://example.com', timeout_seconds: 30 });
+  const logsDir = join(root, 'logs');
+  const { statSync } = await import('node:fs');
+  console.log('\n--- logs ---');
+  for (const f of existsSync(logsDir) ? readdirSync(logsDir) : []) {
+    console.log(`  ${f}: ${statSync(join(logsDir, f)).size} bytes`);
+  }
+
   await realRunner.exec('docker', ['rm', '-f', 'digest'], 30_000);
   rmSync(root, { recursive: true, force: true });
   console.log('\nOK: cleaned up');

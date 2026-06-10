@@ -3,6 +3,7 @@ import {
   realRunner, detectDocker, imagePresent, DockerUnavailableError,
 } from './docker.js';
 import { getCacheRoot } from './cache.js';
+import { getDocumentRoot, getLogsDir, getRepoRoot } from './config.js';
 
 interface Check {
   name: string;
@@ -38,6 +39,10 @@ export async function doctor(): Promise<number> {
       : 'missing — run `digest setup`',
   });
 
+  checks.push({
+    name: 'Document root', ok: true, detail: getDocumentRoot(),
+  });
+
   const cacheRoot = getCacheRoot();
   let cacheOk = false;
   try {
@@ -51,6 +56,13 @@ export async function doctor(): Promise<number> {
     detail: cacheOk ? `${cacheRoot} writable`
       : `${cacheRoot} (created on first use)`,
   });
+
+  checks.push({ name: 'Logs', ok: true, detail: getLogsDir() });
+
+  const repo = getRepoRoot();
+  if (repo) {
+    checks.push({ name: 'Dev mode', ok: true, detail: `repo ${repo}` });
+  }
 
   for (const c of checks) {
     console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}: ${c.detail}`);
