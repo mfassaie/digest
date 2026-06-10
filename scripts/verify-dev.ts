@@ -5,11 +5,12 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
-const bin = join(repo, 'dist', 'index.js');
+// The digest host package (its src/ + dist/) lives under packages/digest.
+const pkg = join(dirname(fileURLToPath(import.meta.url)), '..', 'packages', 'digest');
+const bin = join(pkg, 'dist', 'index.js');
 
 const child = spawn(process.execPath, [bin], {
-  env: { ...process.env, DIGEST_REPO_ROOT: repo, DIGEST_DEV_CHILD: '' },
+  env: { ...process.env, DIGEST_REPO_ROOT: pkg, DIGEST_DEV_CHILD: '' },
   stdio: ['pipe', 'ignore', 'pipe'],
 });
 

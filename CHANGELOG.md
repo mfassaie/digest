@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Restructured into a `packages/` monorepo: `packages/digest` (the published
+  host MCP server, carrying the `docker/` build context), `packages/container`
+  (in-image service), `packages/eval` (converter eval). The repo root is now a
+  private workspace. Dev mode (`DIGEST_REPO_ROOT`) points at `packages/digest`.
+
 ### Added
 
 - Configurable document root via `DIGEST_DOCUMENT_ROOT` (default

@@ -9,7 +9,9 @@ import { dirname, join } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 // ESM output: defuddle/node only exports an `import` condition, so the
 // bundle must be ESM to resolve it (and the other runtime deps) at runtime.
-const outfile = join(here, '..', 'docker', 'service.mjs');
+// The host package owns docker/ (it publishes it), so the bundle is written
+// across into ../digest/docker.
+const outfile = join(here, '..', 'digest', 'docker', 'service.mjs');
 
 await build({
   entryPoints: [join(here, 'src', 'service.ts')],

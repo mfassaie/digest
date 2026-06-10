@@ -7,9 +7,9 @@ import { join } from 'node:path';
 const root = mkdtempSync(join(tmpdir(), 'digest-docroot-'));
 process.env.DIGEST_DOCUMENT_ROOT = root;
 
-const { handleGet, handleRead } = await import('../src/server.js');
-const { realRunner } = await import('../src/docker.js');
-const { getCacheDir } = await import('../src/cache.js');
+const { handleGet, handleRead } = await import('../packages/digest/src/server.js');
+const { realRunner } = await import('../packages/digest/src/docker.js');
+const { getCacheDir } = await import('../packages/digest/src/cache.js');
 
 const url = 'https://quotes.toscrape.com/js/';
 

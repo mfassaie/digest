@@ -8,15 +8,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { handleGet, handleRead } from '../src/server.js';
-import { realRunner, ensureContainer, CONTAINER } from '../src/docker.js';
-import { containerFetch } from '../src/container-client.js';
-import { getCacheDir } from '../src/cache.js';
-import { extractiveEngine } from '../src/read-engine.js';
+import { handleGet, handleRead } from '../packages/digest/src/server.js';
+import { realRunner, ensureContainer, CONTAINER } from '../packages/digest/src/docker.js';
+import { containerFetch } from '../packages/digest/src/container-client.js';
+import { getCacheDir } from '../packages/digest/src/cache.js';
+import { extractiveEngine } from '../packages/digest/src/read-engine.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixturesDir = join(here, '..', 'eval', 'fixtures');
-const reviewPath = join(here, '..', 'eval', 'REAL-E2E-REVIEW.md');
+const fixturesDir = join(here, '..', 'packages', 'eval', 'fixtures');
+const reviewPath = join(here, '..', 'packages', 'eval', 'REAL-E2E-REVIEW.md');
 
 interface Site {
   id: string;

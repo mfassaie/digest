@@ -7,7 +7,8 @@
   "scripts": {
     "all": "tsx src/run-all.ts",
     "capture": "tsx src/capture.ts",
-    "score": "tsx src/run-all.ts --score-only"
+    "score": "tsx src/run-all.ts --score-only",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/turndown": "^5.0.5",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.2"
   }
 }

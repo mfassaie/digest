@@ -9,3 +9,5 @@ dist/
 coverage/
 *.tsbuildinfo
 .falk
+.obsidian/
+.claudian/

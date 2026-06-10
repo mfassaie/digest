@@ -6,10 +6,10 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { handleGet, handleRead } from '../src/server.js';
-import { realRunner, ensureContainer, CONTAINER } from '../src/docker.js';
-import { containerFetch } from '../src/container-client.js';
-import { extractiveEngine } from '../src/read-engine.js';
+import { handleGet, handleRead } from '../packages/digest/src/server.js';
+import { realRunner, ensureContainer, CONTAINER } from '../packages/digest/src/docker.js';
+import { containerFetch } from '../packages/digest/src/container-client.js';
+import { extractiveEngine } from '../packages/digest/src/read-engine.js';
 
 const cacheRoot = mkdtempSync(join(tmpdir(), 'falk-e2e-'));
 const deps = {
