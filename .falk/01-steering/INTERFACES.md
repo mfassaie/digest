@@ -82,14 +82,23 @@ an error directing the caller to run `fetch` first.
 
 ```
 digest setup                              Build the local Docker image
-digest doctor                             Check Docker, image and cache
+digest doctor                             Check Docker, image, doc root, logs
 digest install   [--scope project|global] Register the MCP server
+                 [--document-root <path>]  Set DIGEST_DOCUMENT_ROOT
+                 [--repo <path>]           Set DIGEST_REPO_ROOT (dev mode)
 digest uninstall [--scope project|global] Remove the MCP server
 digest --help | --version
 ```
 
 With no subcommand, starts the MCP server on stdio. From the registry the
 commands are `npx @mfassaie/digest <subcommand>`.
+
+## Configuration (MCP `env`)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DIGEST_DOCUMENT_ROOT` | `~/.claude/digest` | Base dir holding `cache/` and `logs/`. |
+| `DIGEST_REPO_ROOT` | – | If set, dev mode: run the server from the repo source under a watcher. |
 
 **Project scope** writes to: `cwd/.mcp.json`, `cwd/.claude/settings.json`,
 `cwd/.claude/settings.local.json`.
@@ -103,7 +112,10 @@ Exit codes: 0 (success), 1 (error).
 The host talks to an in-image HTTP service (not user-facing):
 `GET /healthz` → `{ status, cdpConnected, version }`; `POST /fetch`
 → `{ outcome: fetched | not-modified | cross-host-redirect | http-error }`
-or 504 timeout / 502 fetch-failed. See ADR-007.
+or 504 timeout / 502 fetch-failed. The `fetched` payload carries the
+**content** (`content.markdown`, base64 `content.raw`, `sections`, `meta`);
+the host writes it into the session's document root (ADR-009). The container
+is document-root-agnostic — there is no bind-mount. See ADR-007, ADR-009.
 
 ## External APIs
 

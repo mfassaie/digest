@@ -110,28 +110,53 @@ Reads a previously fetched document from the cache. No network.
 A typical loop: `get` a URL (see the outline cheaply), then `read` a summary
 or a specific section. `full` returns the whole document and is opt-in.
 
+## Configuration
+
+Set via the MCP server's `env` block (or `install --document-root <path>` /
+`install --repo <path>`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DIGEST_DOCUMENT_ROOT` | `~/.claude/digest` | Base dir holding `cache/` and `logs/`. Each session may set its own. |
+| `DIGEST_REPO_ROOT` | – | If set, runs the server from the repo source under a file watcher (dev mode). |
+
+Different sessions can point at different document roots safely — the shared
+container is document-root-agnostic and the host writes into the configured
+root.
+
 ## How it works
 
 ```
-Claude Code ──stdio──> digest MCP server (host)
-                         starts/uses the Docker container, calls it over HTTP
+Claude Code ──stdio──> digest MCP server (host)        [per session]
+                         starts/uses ONE shared container, calls it over HTTP
+                         writes cache + logs to this session's document root
                          ▼
         container (local image, built by `setup`)
           CloakBrowser (CDP) + a fetch/convert service
-          renders the page, converts to Markdown, writes files to the cache
+          renders the page, converts to Markdown, RETURNS the content
 ```
 
-The MCP server auto-starts the container on first use and reports a clear
-error (no silent fallback) if Docker or the image is missing. Conversion and
-download happen inside the container; the cache directory is bind-mounted so
-files are written straight to the host.
+The MCP server auto-starts the shared container on first use and reports a
+clear error (no silent fallback) if Docker or the image is missing. The
+container fetches and converts and returns the content; the host writes it
+into the document root, so one shared container serves all sessions.
 
-### Cache
+### Cache and logs
 
-Cached at `~/.claude/digest/cache/<domain>/<sha256(url)>/`:
-`raw.<ext>`, `content.md`, `structure.json` (heading index), and `meta.json`
-(ETag, Last-Modified, document metadata). Repeat fetches are revalidated
-with conditional requests (ETag / If-Modified-Since).
+Under `DIGEST_DOCUMENT_ROOT` (default `~/.claude/digest`):
+- `cache/<domain>/<sha256(url)>/`: `raw.<ext>`, `content.md`,
+  `structure.json` (heading index), `meta.json` (ETag, Last-Modified,
+  document metadata). Repeat fetches are revalidated with conditional
+  requests (ETag / If-Modified-Since).
+- `logs/`: `digest-server.log` (the host server) and `cloakbrowser.log`
+  (the container: cloakserve / CloakBrowser).
+
+### Dev mode
+
+Set `DIGEST_REPO_ROOT` to a clone of this repo and the server runs from
+`src/` under `tsx --watch`, hot-reloading on edits (the container image is
+unchanged unless its dependencies change). A reload re-initialises the MCP
+server, so the client re-handshakes.
 
 ## Development
 

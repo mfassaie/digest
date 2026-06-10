@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Configurable document root via `DIGEST_DOCUMENT_ROOT` (default
+  `~/.claude/digest`), holding `cache/` and `logs/`. Each session may set its
+  own; `install --document-root <path>` writes it.
+- Centralised logs under `<document-root>/logs/`: `digest-server.log` (host)
+  and `cloakbrowser.log` (the container, via a `docker logs -f` follower).
+- Dev mode via `DIGEST_REPO_ROOT` (or `install --repo <path>`): runs the
+  server from the repo source under `tsx --watch`, hot-reloading on edits.
+- `doctor` reports the document root, logs dir, and dev-mode repo.
+
+### Changed
+
+- The shared container is now document-root-agnostic: it returns the fetched
+  + converted content over `/fetch` and the host writes the files into the
+  session's document root. The `/data` bind-mount is removed. This lets one
+  shared container serve sessions with different document roots (ADR-009,
+  amending ADR-007).
+
 ## [0.2.0] - 2026-06-10
 
 Renamed from `webfetch-plus` to `digest`. This is a substantial
