@@ -2,7 +2,6 @@ CLAUDE.md
 .claude/
 .mcp.json
 digest.code-workspace
-pnpm-workspace.yaml
 node_modules/
 dist/
 coverage/
