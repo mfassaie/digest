@@ -4,14 +4,24 @@ import type { ConfigTarget } from './types.js';
 import { readJsonFile, writeJsonFile } from
   './cli-json.js';
 
-export function buildMcpEntry(): Record<string, unknown> {
+export interface McpEnvOpts {
+  documentRoot?: string;
+  repoRoot?: string;
+}
+
+export function buildMcpEntry(
+  opts: McpEnvOpts = {},
+): Record<string, unknown> {
   const isWin = platform() === 'win32';
+  const env: Record<string, string> = { NODE_OPTIONS: '--use-system-ca' };
+  if (opts.documentRoot) env.DIGEST_DOCUMENT_ROOT = opts.documentRoot;
+  if (opts.repoRoot) env.DIGEST_REPO_ROOT = opts.repoRoot;
   return {
     command: isWin ? 'cmd' : 'npx',
     args: isWin
       ? ['/c', 'npx', '-y', '@mfassaie/digest']
       : ['-y', '@mfassaie/digest'],
-    env: { NODE_OPTIONS: '--use-system-ca' },
+    env,
   };
 }
 
@@ -34,11 +44,12 @@ export function buildHookCommand(): string {
 
 export function addMcpServer(
   config: Record<string, unknown>,
+  env: McpEnvOpts = {},
 ): Record<string, unknown> {
   const servers = (config.mcpServers ?? {}) as
     Record<string, unknown>;
   delete servers['webfetch-plus']; // remove the pre-rename server
-  servers['digest'] = buildMcpEntry();
+  servers['digest'] = buildMcpEntry(env);
   return { ...config, mcpServers: servers };
 }
 
@@ -92,6 +103,7 @@ export function addPermissions(
 
 export async function install(
   target: ConfigTarget,
+  env: McpEnvOpts = {},
 ): Promise<string[]> {
   const log: string[] = [];
 
@@ -99,7 +111,7 @@ export async function install(
 
   const mcp = await readJsonFile(target.mcpConfig);
   await writeJsonFile(
-    target.mcpConfig, addMcpServer(mcp),
+    target.mcpConfig, addMcpServer(mcp, env),
   );
   log.push(`  ${target.mcpConfig}: MCP server registered`);
 

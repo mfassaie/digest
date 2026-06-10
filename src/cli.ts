@@ -20,7 +20,18 @@ export function parseArgs(
     }
   }
 
-  return { subcommand: sub as CliArgs['subcommand'], scope };
+  const flag = (name: string): string | undefined => {
+    const i = argv.indexOf(name);
+    return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith('--')
+      ? argv[i + 1] : undefined;
+  };
+
+  return {
+    subcommand: sub as CliArgs['subcommand'],
+    scope,
+    documentRoot: flag('--document-root'),
+    repoRoot: flag('--repo'),
+  };
 }
 
 export function printUsage(): void {
@@ -31,6 +42,10 @@ Commands:
   doctor                              Check Docker, image and cache
   install [--scope project|global]    Register MCP server
   uninstall [--scope project|global]  Remove MCP server
+
+Install options:
+  --document-root <path>   Set DIGEST_DOCUMENT_ROOT for the MCP server
+  --repo <path>            Set DIGEST_REPO_ROOT (dev mode: run from source)
 
 Options:
   --help       Show this help message

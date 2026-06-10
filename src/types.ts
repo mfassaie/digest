@@ -85,6 +85,8 @@ export type ContainerFetchResponse =
 export interface CliArgs {
   subcommand: 'install' | 'uninstall' | 'setup' | 'doctor';
   scope: 'project' | 'global';
+  documentRoot?: string;
+  repoRoot?: string;
 }
 
 export interface ConfigTarget {

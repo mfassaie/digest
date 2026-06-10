@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 import { parseArgs, printUsage, printVersion } from
   './cli.js';
 import {
@@ -11,8 +13,39 @@ import { uninstall } from './cli-uninstall.js';
 import { setup } from './cli-setup.js';
 import { doctor } from './cli-doctor.js';
 import { main } from './server.js';
+import { getRepoRoot } from './config.js';
 
 const sub = process.argv[2];
+
+// Dev mode: when DIGEST_REPO_ROOT is set, run the MCP server from the repo
+// source under a watcher so code edits hot-reload. The child sets
+// DIGEST_DEV_CHILD to avoid re-exec loops, and inherits stdio so the MCP
+// stream flows through to the client.
+function startServer(): void {
+  const repo = getRepoRoot();
+  if (repo && !process.env.DIGEST_DEV_CHILD) {
+    console.error(`digest: dev mode, running from ${repo} under watch`);
+    const child = spawn(
+      process.execPath,
+      ['--import', 'tsx', '--watch', join(repo, 'src', 'index.ts')],
+      {
+        cwd: repo,
+        stdio: 'inherit',
+        env: { ...process.env, DIGEST_DEV_CHILD: '1' },
+      },
+    );
+    child.on('error', (err) => {
+      console.error('digest dev mode failed to start:', err.message);
+      process.exit(1);
+    });
+    child.on('exit', (code) => process.exit(code ?? 0));
+    return;
+  }
+  main().catch((err) => {
+    console.error('digest failed to start:', err);
+    process.exit(1);
+  });
+}
 
 if (sub === '--help') {
   printUsage();
@@ -31,7 +64,9 @@ if (sub === '--help') {
     printUsage();
     process.exit(1);
   }
-  runCli(args.subcommand, args.scope).catch((err) => {
+  runCli(args.subcommand, args.scope, {
+    documentRoot: args.documentRoot, repoRoot: args.repoRoot,
+  }).catch((err) => {
     console.error(err instanceof Error
       ? err.message : String(err));
     process.exit(1);
@@ -41,17 +76,13 @@ if (sub === '--help') {
   printUsage();
   process.exit(1);
 } else {
-  main().catch((err) => {
-    console.error(
-      'digest failed to start:', err,
-    );
-    process.exit(1);
-  });
+  startServer();
 }
 
 async function runCli(
   subcommand: 'install' | 'uninstall',
   scope: 'project' | 'global',
+  env: { documentRoot?: string; repoRoot?: string } = {},
 ): Promise<void> {
   const target = scope === 'global'
     ? resolveGlobalTarget()
@@ -72,7 +103,7 @@ async function runCli(
     console.log(
       `Installing digest (${scope} scope)...`,
     );
-    const log = await install(target);
+    const log = await install(target, env);
     log.forEach(l => console.log(l));
     console.log(
       '\nDone. If you have not already, run `digest setup` to ' +
