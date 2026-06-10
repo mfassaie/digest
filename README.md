@@ -6,8 +6,6 @@ structured Markdown — a summary, the section outline, one named section,
 keywords, or the full document. It replaces Claude Code's built-in WebFetch
 with a timeout-safe, JavaScript-rendering alternative.
 
-> Formerly published on npm as `webfetch-plus` (v0.1.x).
-
 See **[packages/digest/README.md](packages/digest/README.md)** for
 installation, configuration, tools, and usage.
 
