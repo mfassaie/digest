@@ -135,4 +135,78 @@ describe('doctor', () => {
     expect(out).not.toContain('Effective type rules');
     expect(out).toContain('Some checks failed.');
   });
+
+  // Severity-aware Docker requirement (plan M4, design §4.9).
+  describe('container-need severity', () => {
+    // Every effective rule local: all three built-in patterns overridden.
+    const ALL_LOCAL = {
+      types: {
+        'text/html': {
+          retrieval: 'http', parser: 'raw', runtime: 'local',
+          escalate: 'none',
+        },
+        'application/xhtml+xml': {
+          retrieval: 'http', parser: 'raw', runtime: 'local',
+          escalate: 'none',
+        },
+        '*/*': {
+          retrieval: 'http', parser: 'raw', runtime: 'local',
+          escalate: 'none',
+        },
+      },
+    };
+
+    it('downgrades missing Docker to a warning when no rule needs it',
+      async () => {
+        const file = join(tempDir, 'settings.json');
+        await writeFile(file, JSON.stringify(ALL_LOCAL), 'utf8');
+        process.env.DIGEST_CONFIG = file;
+        const code = await doctor(fakeRunner({
+          version: { code: 1, stderr: 'not found' },
+          'image inspect': { code: 1 },
+        }));
+        const out = lines.join('\n');
+        expect(code).toBe(0);
+        expect(out).toContain('WARN Docker:');
+        expect(out).toContain('WARN Image:');
+        expect(out).toContain('no effective rule needs the container');
+        expect(out).toContain('All required checks passed (warnings above).');
+      });
+
+    it('keeps missing Docker a hard failure under the defaults', async () => {
+      const code = await doctor(fakeRunner({
+        version: { code: 1, stderr: 'not found' },
+        'image inspect': { code: 1 },
+      }));
+      const out = lines.join('\n');
+      expect(code).toBe(1);
+      expect(out).toContain('FAIL Docker:');
+      expect(out).not.toContain('WARN');
+    });
+
+    it('treats unloadable settings as needing the container', async () => {
+      const file = join(tempDir, 'settings.json');
+      await writeFile(file, '{ not json', 'utf8');
+      process.env.DIGEST_CONFIG = file;
+      const code = await doctor(fakeRunner({
+        version: { code: 1, stderr: 'not found' },
+        'image inspect': { code: 1 },
+      }));
+      const out = lines.join('\n');
+      expect(code).toBe(1);
+      expect(out).toContain('FAIL Docker:');
+      expect(out).toContain('FAIL Settings:');
+    });
+
+    it('passing Docker checks stay OK with all-local rules', async () => {
+      const file = join(tempDir, 'settings.json');
+      await writeFile(file, JSON.stringify(ALL_LOCAL), 'utf8');
+      process.env.DIGEST_CONFIG = file;
+      const code = await doctor(healthyRunner());
+      const out = lines.join('\n');
+      expect(code).toBe(0);
+      expect(out).toContain('OK   Docker: available');
+      expect(out).toContain('All checks passed.');
+    });
+  });
 });

@@ -4,46 +4,29 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { connect, close } from 'mcp-testing-kit';
 import { createServer, type ServerDeps } from '@digest/mcp-server';
-import {
-  extractiveEngine,
-  type ContainerFetchResponse, type Section,
-} from '@digest/shared';
+import { artefactId, createArtefactStore } from '@digest/shared';
+import { DEFAULT_SETTINGS } from '@digest/shared/settings';
 import { defaultDeps } from './deps.js';
 import { getVersion } from './version.js';
 
-// Integration: drive the wired MCP server over the protocol (mcp-testing-kit)
-// with a fake container transport — schema validation, tool dispatch and
-// host-side cache writing all run for real.
+// Integration: drive the wired MCP server over the protocol
+// (mcp-testing-kit) with a fake network — schema validation, tool
+// dispatch, the artefact store and host-side writing all run for real.
 
-let cacheRoot: string;
-beforeEach(() => { cacheRoot = mkdtempSync(join(tmpdir(), 'falk-mcp-')); });
-afterEach(() => { rmSync(cacheRoot, { recursive: true, force: true }); });
+let root: string;
+beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'falk-mcp-')); });
+afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 
-const sections: Section[] = [
-  { level: 1, title: 'Title', slug: 'title', startLine: 1, endLine: 3 },
-  { level: 2, title: 'Install', slug: 'install', startLine: 4, endLine: 6 },
-];
-
-const fetched: ContainerFetchResponse = {
-  outcome: 'fetched', status: 200, finalUrl: 'https://ex.com/p',
-  contentType: 'text/html', category: 'html',
-  meta: { title: 'Doc Title' },
-  sections,
-  content: {
-    ext: 'html',
-    raw: Buffer.from('<html/>', 'utf8').toString('base64'),
-    markdown: '# Title\nIntro.\n\n## Install\nRun it.\n',
-  },
-};
+const MD_URL = 'https://ex.com/guide.md';
+const MD = '# Guide\n\nIntro.\n\n## Install\n\nRun it.\n';
 
 function testDeps(): ServerDeps {
   return {
-    transport: {
-      ensure: async () => ({ baseUrl: 'http://stub' }),
-      fetch: async () => fetched,
-    },
-    cacheRoot,
-    engine: extractiveEngine,
+    store: createArtefactStore(root),
+    settings: DEFAULT_SETTINGS,
+    fetchImpl: async () => new Response(MD, {
+      status: 200, headers: { 'content-type': 'text/markdown' },
+    }),
   };
 }
 
@@ -76,49 +59,86 @@ async function callOnce(
 }
 
 describe('MCP server over the protocol', () => {
-  it('lists the fetch and read tools', async () => {
+  it('lists fetch_file and read_document, and only those', async () => {
     const result = await callOnce(
       testDeps(), (c) => c.listTools(),
     ) as { tools?: { name?: string }[] };
-    const names = (result.tools ?? []).map((t) => t.name);
-    expect(names).toContain('fetch');
-    expect(names).toContain('read');
+    const names = (result.tools ?? []).map((t) => t.name).sort();
+    expect(names).toEqual(['fetch_file', 'read_document']);
   });
 
-  it('fetch then read works end-to-end through tool calls', async () => {
-    const deps = testDeps();
-    const got = await callOnce(
-      deps, (c) => c.callTool('fetch', { uri: 'https://ex.com/p' }),
-    ) as { [x: string]: unknown };
-    expect(textOf(got)).toContain('Doc Title');
-    expect(textOf(got)).toContain('Sections (2)');
+  it('fetch_file then read_document works end-to-end through tool calls',
+    async () => {
+      const deps = testDeps();
+      const fetched = await callOnce(
+        deps, (c) => c.callTool('fetch_file', { uri: MD_URL }),
+      ) as { [x: string]: unknown };
+      const digest = JSON.parse(textOf(fetched)) as {
+        id: string; type: string; file: { uri: string };
+      };
+      expect(digest.type).toBe('file');
+      expect(digest.id).toBe(artefactId(MD_URL, 'file'));
+      // fetch_file is the only tool that returns file uris.
+      expect(digest.file.uri).toContain('file://');
 
-    // A second server instance over the same cache root serves the read:
-    // the cache written by fetch is durable host-side state.
-    const read = await callOnce(
-      deps, (c) => c.callTool('read', {
-        uri: 'https://ex.com/p', mode: 'sections', section: 'install',
+      // A second server instance over the same store serves the read: the
+      // artefact written by fetch_file is durable host-side state.
+      const read = await callOnce(
+        deps, (c) => c.callTool('read_document', {
+          resource: MD_URL, read_mode: 'all',
+        }),
+      ) as { [x: string]: unknown };
+      const body = JSON.parse(textOf(read)) as {
+        type: string;
+        source_changed: boolean;
+        document: { sections: { children: { title: string }[] } };
+      };
+      expect(body.type).toBe('document');
+      expect(body.source_changed).toBe(false);
+      expect(body.document.sections.children[0].title).toBe('Guide');
+      expect(textOf(read)).not.toContain('file://');
+    });
+
+  it('read_document by file id hops to the converted document', async () => {
+    const deps = testDeps();
+    await callOnce(deps, (c) => c.callTool('fetch_file', { uri: MD_URL }));
+    await callOnce(
+      deps, (c) => c.callTool('read_document', { resource: MD_URL }),
+    );
+    const hopped = await callOnce(
+      deps, (c) => c.callTool('read_document', {
+        resource: artefactId(MD_URL, 'file'),
       }),
     ) as { [x: string]: unknown };
-    expect(textOf(read)).toContain('Run it.');
+    const body = JSON.parse(textOf(hopped)) as { id: string };
+    expect(body.id).toBe(artefactId(MD_URL, 'document'));
   });
 
-  it('read on an uncached url returns an isError result', async () => {
-    const read = await callOnce(
-      testDeps(), (c) => c.callTool('read', { uri: 'https://ex.com/none' }),
-    ) as { [x: string]: unknown };
-    expect(read.isError).toBe(true);
-    expect(textOf(read)).toContain('fetch first');
-  });
+  it('read_document on a non-md source returns an isError result',
+    async () => {
+      const read = await callOnce(
+        testDeps(), (c) => c.callTool('read_document', {
+          resource: 'https://ex.com/report.pdf',
+        }),
+      ) as { [x: string]: unknown };
+      expect(read.isError).toBe(true);
+      expect(textOf(read)).toContain('markdown (.md) sources only');
+    });
 });
 
 describe('defaultDeps wiring', () => {
+  const ENV = { ...process.env };
+  afterEach(() => { process.env = { ...ENV }; });
+
   it('builds the production deps shape', () => {
+    // Hermetic: keep the machine's real user config and artefact root out.
+    process.env.XDG_CONFIG_HOME = root;
+    delete process.env.DIGEST_CONFIG;
+    process.env.DIGEST_ARTEFACT_ROOT = join(root, 'artefacts');
     const deps = defaultDeps();
-    expect(typeof deps.transport.ensure).toBe('function');
-    expect(typeof deps.transport.fetch).toBe('function');
-    expect(deps.cacheRoot.length).toBeGreaterThan(0);
-    expect(deps.engine).toBe(extractiveEngine);
-    expect(typeof deps.onContainerReady).toBe('function');
+    expect(deps.store.paths.root).toBe(join(root, 'artefacts'));
+    expect(deps.settings.types['*/*']).toBeDefined();
+    expect(typeof deps.engine?.summarise).toBe('function');
+    expect(deps.logsDir).toBe(join(root, 'artefacts', 'logs'));
   });
 });

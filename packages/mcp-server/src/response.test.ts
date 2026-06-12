@@ -1,92 +1,133 @@
 import { describe, it, expect } from 'vitest';
-import { formatGet, formatError, formatRedirect } from './response.js';
-import type { CacheMeta, Section } from '@digest/shared';
+import type { Digest } from '@digest/shared';
+import {
+  formatError, formatRedirect, jsonText, projectDocumentDigest, text,
+} from './response.js';
 
-const sections: Section[] = [
-  { level: 1, title: 'Title', slug: 'title', startLine: 1, endLine: 3 },
-];
+const STAMP = '2026-06-13T10:00:00.000Z';
+const HASH =
+  'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
-function meta(over: Partial<CacheMeta> = {}): CacheMeta {
+function documentDigest(): Digest {
   return {
-    cacheVersion: 2,
-    url: 'https://ex.com/p',
-    finalUrl: 'https://ex.com/p',
-    contentType: 'text/html',
-    category: 'html',
-    converter: 'defuddle',
-    fetchedAt: '2026-06-13T00:00:00.000Z',
-    rawFile: 'raw.html',
-    ...over,
+    id: 'DDDDDDDDDDDDDDDDDDDDDD',
+    type: 'document',
+    origin_uri: 'https://ex.com/guide.md',
+    created_at: STAMP,
+    updated_at: STAMP,
+    file: {
+      name: 'guide.md',
+      uri: 'file:///store/guide.md',
+      hash: HASH,
+      mime_type: 'text/markdown',
+      size_bytes: 64,
+      chunks: [{
+        index: 0, uri: 'file:///store/chunks/0.md', hash: HASH,
+        size_bytes: 32, chunk_meta: 'sections 1-2', created_at: STAMP,
+      }],
+    },
+    document: {
+      name: 'Guide',
+      summary: 'A guide.',
+      keywords: ['guide'],
+      writable: 'full',
+      source_file_hash: HASH,
+      sections: {
+        id: 'RRRRRRRRRRRRRRRRRRRRRR', type: 'root', depth: 0, index: 0,
+        hash: HASH, created_at: STAMP,
+        content: [{
+          id: 'BBBBBBBBBBBBBBBBBBBBBB', index: 0, type: 'paragraph',
+          value: 'Intro.', hash: HASH, created_at: STAMP,
+        }],
+        children: [{
+          id: 'SSSSSSSSSSSSSSSSSSSSSS', type: 'section', depth: 1,
+          index: 0, title: 'Install', hash: HASH, created_at: STAMP,
+          content: [{
+            id: 'CCCCCCCCCCCCCCCCCCCCCC', index: 0, type: 'code',
+            value: 'npm i', meta: { lang: 'sh' }, hash: HASH,
+            created_at: STAMP,
+          }],
+        }],
+      },
+    },
+    related: [{ id: 'FFFFFFFFFFFFFFFFFFFFFF', type: 'converted_from' }],
   };
 }
 
-describe('formatGet', () => {
-  it('renders full metadata including author, published and final URL', () => {
-    const out = formatGet({
-      meta: meta({
-        finalUrl: 'https://ex.com/final',
-        title: 'T', author: 'A', published: '2026-01-01',
-        description: 'D', wordCount: 42,
-        markdownFile: 'content.md', structureFile: 'structure.json',
-      }),
-      dir: '/tmp/cache',
-      sections,
-      rawSize: 2048,
-      markdownSize: 1536,
-      source: 'fresh',
+describe('projectDocumentDigest', () => {
+  it('omits every uri and strips content arrays', () => {
+    const out = projectDocumentDigest(documentDigest(), 'all', false);
+    const json = JSON.stringify(out);
+    expect(json).not.toContain('uri');
+    expect(json).not.toContain('file://');
+    expect(json).not.toContain('"content"');
+    expect(json).not.toContain('"value"');
+    // Identity, hashes and the tree survive.
+    expect(json).toContain('"source_changed":false');
+    expect(out).toMatchObject({
+      id: 'DDDDDDDDDDDDDDDDDDDDDD',
+      type: 'document',
+      file: { name: 'guide.md', hash: HASH, size_bytes: 64 },
+      related: [{ id: 'FFFFFFFFFFFFFFFFFFFFFF', type: 'converted_from' }],
     });
-    expect(out).toContain('Final URL: https://ex.com/final');
-    expect(out).toContain('Title: T');
-    expect(out).toContain('Author: A');
-    expect(out).toContain('Published: 2026-01-01');
-    expect(out).toContain('Description: D');
-    expect(out).toContain('Word count: 42');
-    expect(out).toContain('markdown: /tmp/cache/content.md');
-    expect(out).toContain('1.5 KB (markdown)');
-    expect(out).toContain('2.0 KB (raw)');
-    expect(out).toContain('Sections (1):');
-    expect(out).toContain('Source: fresh');
+    const document = out.document as {
+      sections: { children: { title: string }[] };
+    };
+    expect(document.sections.children[0].title).toBe('Install');
+    // Chunk records keep identity fields, minus their uris.
+    const file = out.file as { chunks: Record<string, unknown>[] };
+    expect(file.chunks[0]).toEqual({
+      index: 0, hash: HASH, size_bytes: 32, chunk_meta: 'sections 1-2',
+      created_at: STAMP,
+    });
   });
 
-  it('omits the markdown block for raw-only entries', () => {
-    const out = formatGet({
-      meta: meta(),
-      dir: '/tmp/cache',
-      sections: [],
-      rawSize: 10,
-      source: 'fresh',
-    });
-    expect(out).not.toContain('markdown:');
-    expect(out).not.toContain('Sections (');
-    expect(out).toContain('10 B (raw)');
+  it('meta_only drops sections, sections_only drops extracts', () => {
+    const meta = projectDocumentDigest(documentDigest(), 'meta_only', false)
+      .document as Record<string, unknown>;
+    expect(meta.sections).toBeUndefined();
+    expect(meta.summary).toBe('A guide.');
+    expect(meta.keywords).toEqual(['guide']);
+
+    const sections = projectDocumentDigest(
+      documentDigest(), 'sections_only', false,
+    ).document as Record<string, unknown>;
+    expect(sections.sections).toBeTruthy();
+    expect(sections.summary).toBeUndefined();
+    expect(sections.keywords).toBeUndefined();
+    expect(sections.name).toBe('Guide');
   });
 
-  it('formats megabyte sizes', () => {
-    const out = formatGet({
-      meta: meta(),
-      dir: '/tmp/cache',
-      sections: [],
-      rawSize: 3 * 1024 * 1024,
-      source: 'cache (validated)',
-    });
-    expect(out).toContain('3.0 MB (raw)');
-    expect(out).toContain('Source: cache (validated)');
+  it('passes source_changed through', () => {
+    const out = projectDocumentDigest(documentDigest(), 'all', true);
+    expect(out.source_changed).toBe(true);
+  });
+
+  it('refuses a digest without a document branch', () => {
+    const fileOnly = { ...documentDigest(), document: undefined };
+    expect(() => projectDocumentDigest(fileOnly, 'all', false))
+      .toThrow('no document branch');
   });
 });
 
-describe('formatError', () => {
-  it('includes the url and reason', () => {
-    const out = formatError('https://ex.com', 'HTTP 404');
-    expect(out).toContain('Error fetching https://ex.com');
-    expect(out).toContain('Reason: HTTP 404');
+describe('text helpers', () => {
+  it('wraps text and flags errors', () => {
+    expect(text('hi')).toEqual({
+      content: [{ type: 'text', text: 'hi' }],
+    });
+    expect(text('bad', true).isError).toBe(true);
   });
-});
 
-describe('formatRedirect', () => {
-  it('shows both hosts and the follow-up hint', () => {
-    const out = formatRedirect('https://a.com/x', 'https://b.com/y');
-    expect(out).toContain('From: https://a.com/x');
-    expect(out).toContain('To: https://b.com/y');
-    expect(out).toContain('new request');
+  it('renders json results', () => {
+    const out = jsonText({ a: 1 });
+    expect(out.content[0].text).toBe('{\n  "a": 1\n}');
+  });
+
+  it('formats errors and redirects', () => {
+    expect(formatError('https://x', 'boom'))
+      .toBe('Error for https://x\nReason: boom');
+    const redirect = formatRedirect('https://a/x', 'https://b/y');
+    expect(redirect).toContain('From: https://a/x');
+    expect(redirect).toContain('To: https://b/y');
   });
 });

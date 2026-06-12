@@ -26,7 +26,10 @@ async function main(): Promise<void> {
   const deps = defaultDeps();
   const server = createServer(deps, getVersion());
   await server.connect(new StdioServerTransport());
-  logLine('info', `digest ${getVersion()} ready (cache ${deps.cacheRoot})`);
+  logLine(
+    'info',
+    `digest ${getVersion()} ready (artefacts ${deps.store.paths.root})`,
+  );
 }
 
 // Dev mode: when DIGEST_REPO_ROOT is set, run the MCP server from the repo

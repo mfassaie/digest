@@ -1,62 +1,31 @@
-import {
-  formatOutline, type CacheMeta, type Section,
-} from '@digest/shared';
+import type { Digest, DocumentSection, FileChunk } from '@digest/shared';
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+// Response formatting for the M4 tool surface (ADR-011 design §4):
+// fetch_file returns the file Digest verbatim — the ONLY tool carrying
+// file uris. read_document returns a projection of the document Digest
+// with every uri omitted (file.uri, chunk uris, origin_uri), the section
+// tree stripped of content arrays (§5.4: the tree IS the toc;
+// read_section serves bodies in M5), and read_mode trimming the document
+// branch.
+
+export type TextResult = {
+  isError?: boolean;
+  content: { type: 'text'; text: string }[];
+};
+
+export function text(body: string, isError = false): TextResult {
+  return {
+    ...(isError ? { isError: true } : {}),
+    content: [{ type: 'text', text: body }],
+  };
 }
 
-export interface GetParams {
-  meta: CacheMeta;
-  dir: string;
-  sections: Section[];
-  rawSize: number;
-  markdownSize?: number;
-  source: 'fresh' | 'cache (validated)';
+export function jsonText(value: unknown, isError = false): TextResult {
+  return text(JSON.stringify(value, null, 2), isError);
 }
 
-// fetch success: metadata, file paths, section outline. Never
-// the document body inline (ADR-003, scoped by ADR-008).
-export function formatGet(p: GetParams): string {
-  const m = p.meta;
-  const lines: string[] = [
-    `URL: ${m.url}`,
-  ];
-  if (m.finalUrl && m.finalUrl !== m.url) lines.push(`Final URL: ${m.finalUrl}`);
-  lines.push(`Status: 200`, `Content-Type: ${m.contentType}`);
-  if (m.title) lines.push(`Title: ${m.title}`);
-  if (m.author) lines.push(`Author: ${m.author}`);
-  if (m.published) lines.push(`Published: ${m.published}`);
-  if (m.description) lines.push(`Description: ${m.description}`);
-  if (m.wordCount) lines.push(`Word count: ${m.wordCount}`);
-
-  lines.push('', 'Files:');
-  if (m.markdownFile) lines.push(`  markdown: ${p.dir}/${m.markdownFile}`);
-  lines.push(`  raw: ${p.dir}/${m.rawFile}`);
-
-  lines.push('');
-  const sizeParts: string[] = [];
-  if (p.markdownSize !== undefined) {
-    sizeParts.push(`${formatSize(p.markdownSize)} (markdown)`);
-  }
-  sizeParts.push(`${formatSize(p.rawSize)} (raw)`);
-  lines.push(`Size: ${sizeParts.join(' | ')}`);
-  lines.push(`Fetched: ${m.fetchedAt}`);
-  lines.push(`Source: ${p.source}`);
-
-  if (m.markdownFile) {
-    lines.push('', `Sections (${p.sections.length}):`);
-    lines.push(formatOutline(p.sections));
-    lines.push('', 'Use read with mode=sections|summary|' +
-      'keywords|full (and section=<slug> for one section).');
-  }
-  return lines.join('\n');
-}
-
-export function formatError(url: string, reason: string): string {
-  return `Error fetching ${url}\nReason: ${reason}`;
+export function formatError(context: string, reason: string): string {
+  return `Error for ${context}\nReason: ${reason}`;
 }
 
 export function formatRedirect(fromUrl: string, toUrl: string): string {
@@ -67,4 +36,64 @@ export function formatRedirect(fromUrl: string, toUrl: string): string {
     '',
     'Make a new request with the redirect URL to fetch the content.',
   ].join('\n');
+}
+
+export type ReadMode = 'all' | 'meta_only' | 'sections_only';
+
+export function projectDocumentDigest(
+  digest: Digest, readMode: ReadMode, sourceChanged: boolean,
+): Record<string, unknown> {
+  const document = digest.document;
+  if (document === undefined) {
+    throw new Error(`digest ${digest.id} carries no document branch`);
+  }
+  const documentBranch: Record<string, unknown> = { name: document.name };
+  if (readMode !== 'sections_only') {
+    if (document.summary !== undefined) {
+      documentBranch.summary = document.summary;
+    }
+    if (document.keywords !== undefined) {
+      documentBranch.keywords = document.keywords;
+    }
+  }
+  documentBranch.writable = document.writable;
+  documentBranch.source_file_hash = document.source_file_hash;
+  if (readMode !== 'meta_only') {
+    documentBranch.sections = stripContent(document.sections);
+  }
+  return {
+    id: digest.id,
+    type: digest.type,
+    created_at: digest.created_at,
+    ...(digest.updated_at === undefined
+      ? {} : { updated_at: digest.updated_at }),
+    // Plumbed for M7's divergence check; false until then.
+    source_changed: sourceChanged,
+    // File identity without location (§10.10): hash/mime/size, no uris.
+    file: {
+      name: digest.file.name,
+      hash: digest.file.hash,
+      mime_type: digest.file.mime_type,
+      size_bytes: digest.file.size_bytes,
+      ...(digest.file.chunks === undefined
+        ? {} : { chunks: digest.file.chunks.map(stripChunkUri) }),
+    },
+    document: documentBranch,
+    ...(digest.related === undefined ? {} : { related: digest.related }),
+  };
+}
+
+function stripChunkUri(chunk: FileChunk): Record<string, unknown> {
+  const { uri: _uri, ...rest } = chunk;
+  return rest;
+}
+
+// The tree without content arrays is the document's table of contents.
+function stripContent(section: DocumentSection): Record<string, unknown> {
+  const { content: _content, children, ...rest } = section;
+  return {
+    ...rest,
+    ...(children === undefined
+      ? {} : { children: children.map(stripContent) }),
+  };
 }

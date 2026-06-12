@@ -6,42 +6,26 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 // Via the package barrel so the public surface is what gets exercised.
 import { createServer, type ServerDeps } from './index.js';
-import {
-  extractiveEngine,
-  type ContainerFetchResponse, type Section,
-} from '@digest/shared';
+import { createArtefactStore } from '@digest/shared';
+import { DEFAULT_SETTINGS } from '@digest/shared/settings';
 
-// Drive the registered tools through a real (in-memory) MCP client, so the
-// zod schemas, defaults and tool callbacks run, not just the handlers.
+// Drive the registered tools through a real (in-memory) MCP client, so
+// the zod schemas, enum constraints and defaults run, not just the
+// handlers.
 
-let cacheRoot: string;
-beforeEach(() => { cacheRoot = mkdtempSync(join(tmpdir(), 'falk-tools-')); });
-afterEach(() => { rmSync(cacheRoot, { recursive: true, force: true }); });
+let root: string;
+beforeEach(() => { root = mkdtempSync(join(tmpdir(), 'digest-tools-')); });
+afterEach(() => { rmSync(root, { recursive: true, force: true }); });
 
-const sections: Section[] = [
-  { level: 1, title: 'Title', slug: 'title', startLine: 1, endLine: 2 },
-];
-
-const fetched: ContainerFetchResponse = {
-  outcome: 'fetched', status: 200, finalUrl: 'https://ex.com/p',
-  contentType: 'text/html', category: 'html',
-  meta: { title: 'Doc Title' },
-  sections,
-  content: {
-    ext: 'html',
-    raw: Buffer.from('<html/>', 'utf8').toString('base64'),
-    markdown: '# Title\nIntro.\n',
-  },
-};
+const MD_URL = 'https://ex.com/guide.md';
 
 function testDeps(): ServerDeps {
   return {
-    transport: {
-      ensure: async () => ({ baseUrl: 'http://stub' }),
-      fetch: async () => fetched,
-    },
-    cacheRoot,
-    engine: extractiveEngine,
+    store: createArtefactStore(root),
+    settings: DEFAULT_SETTINGS,
+    fetchImpl: async () => new Response('# Guide\nIntro.\n', {
+      status: 200, headers: { 'content-type': 'text/markdown' },
+    }),
   };
 }
 
@@ -63,27 +47,41 @@ function textOf(result: unknown): string {
 }
 
 describe('registered tools over an in-memory MCP connection', () => {
-  it('lists fetch and read with the server version', async () => {
+  it('lists the new tool names only', async () => {
     const { server, client } = await connectedClient(testDeps());
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(['fetch', 'read']);
+    expect(tools.map((t) => t.name).sort())
+      .toEqual(['fetch_file', 'read_document']);
     expect(server.server.getClientVersion()?.name).toBe('test-client');
     await client.close();
   });
 
-  it('fetch tool fetches and read tool serves the cache', async () => {
+  it('defaults apply: chunk_mode none, read_mode all', async () => {
     const deps = testDeps();
     const { client } = await connectedClient(deps);
 
-    const got = await client.callTool({
-      name: 'fetch', arguments: { uri: 'https://ex.com/p' },
+    const fetched = await client.callTool({
+      name: 'fetch_file', arguments: { uri: MD_URL },
     });
-    expect(textOf(got)).toContain('Doc Title');
+    expect(textOf(fetched)).toContain('"type": "file"');
 
     const read = await client.callTool({
-      name: 'read', arguments: { uri: 'https://ex.com/p', mode: 'full' },
+      name: 'read_document', arguments: { resource: MD_URL },
     });
-    expect(textOf(read)).toContain('# Title');
+    const body = JSON.parse(textOf(read)) as {
+      document: { sections?: unknown; summary?: string };
+    };
+    expect(body.document.sections).toBeTruthy();
+    await client.close();
+  });
+
+  it('rejects an out-of-enum read_mode at the schema layer', async () => {
+    const { client } = await connectedClient(testDeps());
+    const result = await client.callTool({
+      name: 'read_document',
+      arguments: { resource: MD_URL, read_mode: 'everything' },
+    }) as { isError?: boolean };
+    expect(result.isError).toBe(true);
     await client.close();
   });
 });

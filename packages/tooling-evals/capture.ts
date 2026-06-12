@@ -1,18 +1,18 @@
-// Real-world e2e: drive the production host handlers (fetch /
-// _read) against real sites through the live container, capture rendered
-// HTML as eval fixtures, and dump get/read output for review.
-// Run: npx tsx packages/tooling-evals/capture.ts
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from
-  'node:fs';
-import { tmpdir } from 'node:os';
+// Real-world fixture capture: drive the in-container fetch service
+// directly against real sites, capture rendered HTML as eval fixtures,
+// and dump outline/summary/keyword output for review. (The MCP tool
+// surface is md-only until M9, so capture talks to the container client,
+// not the tools.) Run: npx tsx packages/tooling-evals/capture.ts
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { handleGet, handleRead } from '@digest/mcp-server';
 import {
   realRunner, ensureContainer, containerFetch, CONTAINER,
 } from '@digest/docker';
-import { getCacheDir, extractiveEngine } from '@digest/shared';
+import {
+  extractiveEngine, formatOutline, type ContainerFetchResponse,
+} from '@digest/shared';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, 'fixtures');
@@ -58,41 +58,38 @@ const E2E_REVIEW = new Set([
   'real-spa-quotes', 'real-stackoverflow',
 ]);
 
-const cacheRoot = mkdtempSync(join(tmpdir(), 'falk-real-'));
-const deps = {
-  transport: {
-    ensure: () => ensureContainer(realRunner, {}),
-    fetch: containerFetch,
-  },
-  cacheRoot,
-  engine: extractiveEngine,
-};
-
-function textOf(r: { isError?: boolean; content: { text: string }[] }): string {
-  return (r.isError ? '[isError] ' : '') + r.content[0].text;
+function summaryLine(res: ContainerFetchResponse): string {
+  if (res.outcome !== 'fetched') return `outcome: ${res.outcome}`;
+  return [
+    `outcome: fetched ${res.status}`,
+    `type: ${res.contentType}`,
+    `title: ${res.meta.title ?? '(none)'}`,
+    `sections: ${res.sections.length}`,
+  ].join('\n');
 }
 
 async function main(): Promise<void> {
+  const { baseUrl } = await ensureContainer(realRunner, {});
   const review: string[] = ['# Real-world e2e review', ''];
   for (const site of SITES) {
     process.stderr.write(`\n=== ${site.id} ===\n`);
+    let res: ContainerFetchResponse | undefined;
     let getText = '';
     try {
-      const get = await handleGet(
-        { uri: site.url, timeout_seconds: 45 }, deps,
-      );
-      getText = textOf(get);
+      res = await containerFetch(baseUrl, {
+        url: site.url.replace(/^http:/, 'https:'),
+        timeoutSeconds: 45,
+        rawOnly: false,
+      });
+      getText = summaryLine(res);
     } catch (err) {
       getText = `THREW: ${err instanceof Error ? err.message : String(err)}`;
     }
-    process.stderr.write(getText.split('\n').slice(0, 4).join('\n') + '\n');
+    process.stderr.write(getText + '\n');
 
     // Save rendered HTML as an eval fixture.
-    try {
-      const dir = getCacheDir(
-        site.url.replace(/^http:/, 'https:'), cacheRoot,
-      );
-      const raw = readFileSync(join(dir, 'raw.html'), 'utf8');
+    if (res?.outcome === 'fetched' && res.content.ext === 'html') {
+      const raw = Buffer.from(res.content.raw, 'base64').toString('utf8');
       const fdir = join(fixturesDir, site.id);
       mkdirSync(fdir, { recursive: true });
       writeFileSync(join(fdir, 'input.html'), raw);
@@ -101,32 +98,28 @@ async function main(): Promise<void> {
         capturedAt: '2026-06-10', real: true,
       }, null, 2) + '\n');
       process.stderr.write(`  saved fixture (${raw.length}b)\n`);
-    } catch (err) {
-      process.stderr.write(`  no raw.html: ${
-        err instanceof Error ? err.message : String(err)}\n`);
+    } else {
+      process.stderr.write('  no rendered html: fixture skipped\n');
     }
 
-    if (!E2E_REVIEW.has(site.id)) continue;
+    if (!E2E_REVIEW.has(site.id) || res?.outcome !== 'fetched') continue;
 
-    const sections = textOf(await handleRead(
-      { uri: site.url, mode: 'sections' }, deps));
-    const summary = textOf(await handleRead(
-      { uri: site.url, mode: 'summary' }, deps));
-    const keywords = textOf(await handleRead(
-      { uri: site.url, mode: 'keywords' }, deps));
+    const markdown = res.content.markdown ?? '';
+    const sections = formatOutline(res.sections);
+    const summary = extractiveEngine.summarise(markdown, 5);
+    const keywords = extractiveEngine.keywords(markdown, 12).join(', ');
 
     review.push(`## ${site.id}`, '', `${site.note}`, '',
-      '### get', '```', getText.slice(0, 1400), '```', '',
-      '### read sections', '```',
+      '### fetch', '```', getText.slice(0, 1400), '```', '',
+      '### outline', '```',
       sections.split('\n').slice(0, 40).join('\n'), '```', '',
-      '### read summary', '```', summary.slice(0, 1200), '```', '',
-      '### read keywords', '```', keywords.slice(0, 400), '```', '');
+      '### summary', '```', summary.slice(0, 1200), '```', '',
+      '### keywords', '```', keywords.slice(0, 400), '```', '');
   }
 
   writeFileSync(reviewPath, review.join('\n') + '\n');
   process.stderr.write(`\nWrote ${reviewPath}\n`);
   await realRunner.exec('docker', ['rm', '-f', CONTAINER], 30_000);
-  rmSync(cacheRoot, { recursive: true, force: true });
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

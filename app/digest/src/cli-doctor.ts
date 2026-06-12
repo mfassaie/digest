@@ -14,6 +14,8 @@ import {
 interface Check {
   name: string;
   ok: boolean;
+  // A failed warning-severity check is reported but does not fail doctor.
+  severity: 'error' | 'warning';
   detail: string;
 }
 
@@ -25,14 +27,43 @@ export async function doctor(
 ): Promise<number> {
   const checks: Check[] = [];
 
+  // Settings load first: the Docker requirement's severity depends on the
+  // effective rules (plan M4, design §4.9) — a hard requirement when any
+  // rule runs in the container, a warning when everything is local.
+  let loaded: LoadedSettings | undefined;
+  let settingsCheck: Check;
+  try {
+    loaded = loadSettings();
+    settingsCheck = {
+      name: 'Settings', ok: true, severity: 'error',
+      detail: `${describeSource(loaded.source)}, valid`,
+    };
+  } catch (err) {
+    settingsCheck = {
+      name: 'Settings', ok: false, severity: 'error',
+      detail: err instanceof SettingsError ? err.message : String(err),
+    };
+  }
+  // Unknown settings are treated as needing the container (defaults do).
+  const needsContainer = loaded === undefined
+    || Object.values(loaded.settings.types)
+      .some((rule) => rule.runtime === 'container');
+  const dockerSeverity = needsContainer ? 'error' : 'warning';
+  const optionalNote = needsContainer
+    ? '' : ' (optional: no effective rule needs the container)';
+
   try {
     await detectDocker(runner);
-    checks.push({ name: 'Docker', ok: true, detail: 'available' });
-  } catch (err) {
     checks.push({
-      name: 'Docker', ok: false,
-      detail: err instanceof DockerUnavailableError
-        ? err.message.split('\n')[0] : String(err),
+      name: 'Docker', ok: true, severity: dockerSeverity,
+      detail: 'available',
+    });
+  } catch (err) {
+    const reason = err instanceof DockerUnavailableError
+      ? err.message.split('\n')[0] : String(err);
+    checks.push({
+      name: 'Docker', ok: false, severity: dockerSeverity,
+      detail: reason + optionalNote,
     });
   }
 
@@ -43,29 +74,16 @@ export async function doctor(
     img = false;
   }
   checks.push({
-    name: 'Image', ok: img,
+    name: 'Image', ok: img, severity: dockerSeverity,
     detail: img ? 'digest:local present'
-      : 'missing — run `digest setup`',
+      : 'missing — run `digest setup`' + optionalNote,
   });
 
-  // Settings (plan M1): report the source and the validation state; an
-  // invalid file is a hard startup error, so doctor fails the check.
-  let loaded: LoadedSettings | undefined;
-  try {
-    loaded = loadSettings();
-    checks.push({
-      name: 'Settings', ok: true,
-      detail: `${describeSource(loaded.source)}, valid`,
-    });
-  } catch (err) {
-    checks.push({
-      name: 'Settings', ok: false,
-      detail: err instanceof SettingsError ? err.message : String(err),
-    });
-  }
+  checks.push(settingsCheck);
 
   checks.push({
-    name: 'Artefact root', ok: true, detail: getArtefactRoot(),
+    name: 'Artefact root', ok: true, severity: 'error',
+    detail: getArtefactRoot(),
   });
 
   const cacheRoot = getCacheRoot();
@@ -77,21 +95,26 @@ export async function doctor(
     cacheOk = false; // may simply not exist yet
   }
   checks.push({
-    name: 'Cache', ok: true,
+    name: 'Cache', ok: true, severity: 'error',
     detail: cacheOk ? `${cacheRoot} writable`
       : `${cacheRoot} (created on first use)`,
   });
 
-  checks.push({ name: 'Logs', ok: true, detail: getLogsDir() });
+  checks.push({
+    name: 'Logs', ok: true, severity: 'error', detail: getLogsDir(),
+  });
 
   const repo = getRepoRoot();
   if (repo) {
-    checks.push({ name: 'Dev mode', ok: true, detail: `repo ${repo}` });
+    checks.push({
+      name: 'Dev mode', ok: true, severity: 'error', detail: `repo ${repo}`,
+    });
   }
 
   for (const c of checks) {
+    const status = c.ok ? 'OK  ' : c.severity === 'warning' ? 'WARN' : 'FAIL';
     const [first, ...rest] = c.detail.split('\n');
-    console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}: ${first}`);
+    console.log(`${status} ${c.name}: ${first}`);
     for (const line of rest) console.log(`     ${line}`);
   }
 
@@ -104,9 +127,13 @@ export async function doctor(
     }
   }
 
-  const healthy = checks.every((c) => c.ok);
-  console.log(healthy ? '\nAll checks passed.' : '\nSome checks failed.');
-  return healthy ? 0 : 1;
+  const failed = checks.some((c) => !c.ok && c.severity === 'error');
+  const warned = checks.some((c) => !c.ok && c.severity === 'warning');
+  console.log(failed
+    ? '\nSome checks failed.'
+    : warned ? '\nAll required checks passed (warnings above).'
+      : '\nAll checks passed.');
+  return failed ? 1 : 0;
 }
 
 function describeSource(source: SettingsSource): string {

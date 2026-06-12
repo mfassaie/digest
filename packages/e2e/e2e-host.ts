@@ -1,46 +1,65 @@
-// Live end-to-end check of the host MCP handlers against a real container.
-// Builds nothing; assumes `digest:local` image exists. Starts the
-// container via the real docker lifecycle, runs fetch and
-// read against live URLs, prints results. Not a unit test —
-// run manually: `node --import tsx packages/e2e/e2e-host.ts`.
+// Live end-to-end check of the host MCP handlers on the M4 md-only flow.
+// No Docker needed: the local http engine fetches a real markdown url,
+// the host writes the file Digest, read_document converts (straight copy
+// + fold) and serves the section tree, and a second fetch revalidates via
+// the stored ETag. Not a unit test — run manually:
+// `node --import tsx packages/e2e/e2e-host.ts`.
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { handleGet, handleRead } from '@digest/mcp-server';
+import { handleFetchFile, handleReadDocument } from '@digest/mcp-server';
 import {
-  realRunner, ensureContainer, containerFetch, CONTAINER,
-} from '@digest/docker';
-import { extractiveEngine } from '@digest/shared';
+  artefactId, createArtefactStore, extractiveEngine,
+} from '@digest/shared';
+import { DEFAULT_SETTINGS } from '@digest/shared/settings';
 
-const cacheRoot = mkdtempSync(join(tmpdir(), 'falk-e2e-'));
+const root = mkdtempSync(join(tmpdir(), 'digest-e2e-'));
 const deps = {
-  transport: {
-    ensure: () => ensureContainer(realRunner, {}),
-    fetch: containerFetch,
-  },
-  cacheRoot,
+  store: createArtefactStore(root),
+  settings: DEFAULT_SETTINGS,
   engine: extractiveEngine,
+  logsDir: join(root, 'logs'),
 };
 
-function show(label: string, r: { isError?: boolean; content: { text: string }[] }) {
+function show(
+  label: string, r: { isError?: boolean; content: { text: string }[] },
+): void {
   console.log(`\n--- ${label}${r.isError ? ' [isError]' : ''} ---`);
-  console.log(r.content[0].text.slice(0, 700));
+  console.log(r.content[0].text.slice(0, 900));
 }
 
 async function main(): Promise<void> {
-  // Use a docs page with real headings so sections are exercised.
-  const url = 'https://nodejs.org/api/process.html';
-  show('get (docs page)', await handleGet({ uri: url, timeout_seconds: 40 }, deps));
-  show('read sections', await handleRead({ uri: url, mode: 'sections' }, deps));
-  show('read summary', await handleRead({ uri: url, mode: 'summary' }, deps));
-  show('read keywords', await handleRead({ uri: url, mode: 'keywords' }, deps));
+  // A real markdown file with headings, served over plain http(s).
+  const url = 'https://raw.githubusercontent.com/mfassaie/digest/main/README.md';
 
-  // Second get should revalidate (ETag) -> cache (validated) if supported.
-  show('get again (revalidate)', await handleGet({ uri: url, timeout_seconds: 40 }, deps));
+  show('fetch_file (md url)', await handleFetchFile({ uri: url }, deps));
+  show(
+    'read_document (same uri)',
+    await handleReadDocument({ resource: url, read_mode: 'all' }, deps),
+  );
+  show(
+    'read_document meta_only',
+    await handleReadDocument(
+      { resource: url, read_mode: 'meta_only' }, deps,
+    ),
+  );
+  show(
+    'read_document (file id, hops converted_to)',
+    await handleReadDocument(
+      { resource: artefactId(url, 'file') }, deps,
+    ),
+  );
+  // Second fetch should send the stored validators -> 304 -> store serve.
+  show('fetch_file again (revalidate)',
+    await handleFetchFile({ uri: url }, deps));
+  // The md-only v1 boundary: a non-md source names the roadmap.
+  show('read_document (non-md url)', await handleReadDocument(
+    { resource: 'https://raw.githubusercontent.com/mfassaie/digest/main/LICENSE' },
+    deps,
+  ));
 
-  console.log('\nDone. Cleaning up container and cache.');
-  await realRunner.exec('docker', ['rm', '-f', CONTAINER], 30_000);
-  rmSync(cacheRoot, { recursive: true, force: true });
+  console.log('\nDone. Cleaning up the artefact root.');
+  rmSync(root, { recursive: true, force: true });
 }
 
 main().catch((err) => {

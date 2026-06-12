@@ -1,6 +1,9 @@
-// Live verification: with a custom DIGEST_ARTEFACT_ROOT, the host writes
-// the container-returned content under <root>/cache, and read serves it.
-import { mkdtempSync, rmSync, existsSync, readdirSync } from 'node:fs';
+// Verification: with a custom DIGEST_ARTEFACT_ROOT, the host writes the
+// artefact store under that root (host-side writing, ADR-009). Fully
+// offline on the M4 md-only flow: fetch_file reads a local markdown file,
+// read_document converts and serves it. No Docker, no network.
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from
+  'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,53 +11,61 @@ const root = mkdtempSync(join(tmpdir(), 'digest-docroot-'));
 process.env.DIGEST_ARTEFACT_ROOT = root;
 
 // Imported after the env var is set so the wiring picks the custom root up.
-const { handleGet, handleRead } = await import('@digest/mcp-server');
-const {
-  realRunner, ensureContainer, containerFetch, startBrowserLogFollower,
-} = await import('@digest/docker');
-const { getCacheDir, getCacheRoot, extractiveEngine } =
+const { handleFetchFile, handleReadDocument } =
+  await import('@digest/mcp-server');
+const { createArtefactStore, extractiveEngine, getArtefactRoot } =
   await import('@digest/shared');
+const { DEFAULT_SETTINGS } = await import('@digest/shared/settings');
 
-// Same wiring as the app's defaultDeps (app/digest/src/deps.ts).
+// Same wiring shape as the app's defaultDeps (app/digest/src/deps.ts),
+// with deterministic settings.
 const deps = {
-  transport: {
-    ensure: () => ensureContainer(realRunner, {}),
-    fetch: containerFetch,
-  },
-  cacheRoot: getCacheRoot(),
+  store: createArtefactStore(getArtefactRoot()),
+  settings: DEFAULT_SETTINGS,
   engine: extractiveEngine,
-  onContainerReady: startBrowserLogFollower,
+  logsDir: join(getArtefactRoot(), 'logs'),
 };
 
-const url = 'https://quotes.toscrape.com/js/';
+const sample = join(root, 'sample.md');
+writeFileSync(sample, [
+  '# Sample document', '',
+  'A local markdown file for the doc-root verification.', '',
+  '## Details', '', 'Host-side writing only (ADR-009).', '',
+].join('\n'), 'utf8');
 
 async function main(): Promise<void> {
   console.log(`artefact root = ${root}`);
-  const get = await handleGet({ uri: url, timeout_seconds: 45 }, deps);
-  console.log('--- get ---');
-  console.log(get.content[0].text.split('\n').slice(0, 8).join('\n'));
 
-  const dir = getCacheDir(url.replace(/^http:/, 'https:'));
-  console.log(`\ncache dir under custom root: ${dir}`);
-  console.log('is under custom root:', dir.startsWith(root));
-  console.log('files:', existsSync(dir) ? readdirSync(dir) : '(none)');
+  const fetched = await handleFetchFile({ uri: sample }, deps);
+  console.log('\n--- fetch_file (local md) ---');
+  console.log(fetched.content[0].text.split('\n').slice(0, 10).join('\n'));
 
-  const read = await handleRead({ uri: url, mode: 'full' }, deps);
-  console.log('\n--- read full (first 120 chars) ---');
-  console.log(read.content[0].text.slice(0, 120));
+  const digest = JSON.parse(fetched.content[0].text) as {
+    id: string; file: { uri: string };
+  };
+  const artefactDir = deps.store.paths.artefactDir(digest.id);
+  console.log(`\nartefact dir under custom root: ${artefactDir}`);
+  console.log('is under custom root:', artefactDir.startsWith(root));
+  console.log('files:',
+    existsSync(artefactDir) ? readdirSync(artefactDir) : '(none)');
 
-  // A second fetch generates fresh container output for the log follower.
-  await handleGet({ uri: 'https://example.com', timeout_seconds: 30 }, deps);
-  const logsDir = join(root, 'logs');
-  const { statSync } = await import('node:fs');
-  console.log('\n--- logs ---');
-  for (const f of existsSync(logsDir) ? readdirSync(logsDir) : []) {
-    console.log(`  ${f}: ${statSync(join(logsDir, f)).size} bytes`);
-  }
+  const read = await handleReadDocument({ resource: sample }, deps);
+  console.log('\n--- read_document (first 400 chars) ---');
+  console.log(read.content[0].text.slice(0, 400));
+  const noUris = !read.content[0].text.includes('file://');
+  console.log('response carries no file uris:', noUris);
 
-  await realRunner.exec('docker', ['rm', '-f', 'digest'], 30_000);
+  const indexPath = deps.store.paths.indexPath;
+  console.log('\nindex written:', existsSync(indexPath), `(${indexPath})`);
+  const logsDir = join(root, 'logs', 'docs');
+  console.log('doc logs:',
+    existsSync(logsDir) ? readdirSync(logsDir) : '(none)');
+
+  const ok = artefactDir.startsWith(root) && existsSync(indexPath)
+    && !read.isError && noUris;
   rmSync(root, { recursive: true, force: true });
-  console.log('\nOK: cleaned up');
+  console.log(ok ? '\nOK: cleaned up' : '\nFAILED');
+  process.exit(ok ? 0 : 1);
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });
