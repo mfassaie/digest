@@ -4,8 +4,12 @@ import {
   type CommandRunner,
 } from '@digest/docker';
 import {
-  getCacheRoot, getDocumentRoot, getLogsDir, getRepoRoot,
+  getArtefactRoot, getCacheRoot, getLogsDir, getRepoRoot,
 } from '@digest/shared';
+import {
+  loadSettings, SettingsError,
+  type LoadedSettings, type Settings, type SettingsSource,
+} from '@digest/shared/settings';
 
 interface Check {
   name: string;
@@ -13,8 +17,9 @@ interface Check {
   detail: string;
 }
 
-// Diagnose the digest environment: Docker, the local image, and a
-// writable cache directory. The runner is injectable for tests.
+// Diagnose the digest environment: Docker, the local image, the settings
+// (source, validity, effective rules) and the artefact root. The runner is
+// injectable for tests.
 export async function doctor(
   runner: CommandRunner = realRunner,
 ): Promise<number> {
@@ -43,8 +48,24 @@ export async function doctor(
       : 'missing — run `digest setup`',
   });
 
+  // Settings (plan M1): report the source and the validation state; an
+  // invalid file is a hard startup error, so doctor fails the check.
+  let loaded: LoadedSettings | undefined;
+  try {
+    loaded = loadSettings();
+    checks.push({
+      name: 'Settings', ok: true,
+      detail: `${describeSource(loaded.source)}, valid`,
+    });
+  } catch (err) {
+    checks.push({
+      name: 'Settings', ok: false,
+      detail: err instanceof SettingsError ? err.message : String(err),
+    });
+  }
+
   checks.push({
-    name: 'Document root', ok: true, detail: getDocumentRoot(),
+    name: 'Artefact root', ok: true, detail: getArtefactRoot(),
   });
 
   const cacheRoot = getCacheRoot();
@@ -69,9 +90,48 @@ export async function doctor(
   }
 
   for (const c of checks) {
-    console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}: ${c.detail}`);
+    const [first, ...rest] = c.detail.split('\n');
+    console.log(`${c.ok ? 'OK  ' : 'FAIL'} ${c.name}: ${first}`);
+    for (const line of rest) console.log(`     ${line}`);
   }
+
+  if (loaded) {
+    console.log(
+      '\nEffective type rules (retrieval, parser, runtime, escalation):',
+    );
+    for (const line of ruleTable(loaded.settings)) {
+      console.log(`  ${line}`);
+    }
+  }
+
   const healthy = checks.every((c) => c.ok);
   console.log(healthy ? '\nAll checks passed.' : '\nSome checks failed.');
   return healthy ? 0 : 1;
+}
+
+function describeSource(source: SettingsSource): string {
+  if (source.kind === 'defaults') {
+    return 'built-in defaults (no settings file)';
+  }
+  const origin = {
+    digest_config: 'DIGEST_CONFIG',
+    cwd: 'cwd dev file',
+    xdg: 'user config',
+  }[source.origin];
+  return `${source.path} (${origin})`;
+}
+
+// The merged per-MIME rule table actually in force (exact > type/* > */*),
+// one aligned row per pattern.
+function ruleTable(settings: Settings): string[] {
+  const rows = Object.entries(settings.types).map(
+    ([pattern, r]) => [pattern, r.retrieval, r.parser, r.runtime, r.escalate],
+  );
+  const widths = rows[0].map(
+    (_, col) => Math.max(...rows.map((row) => row[col].length)),
+  );
+  return rows.map(
+    (row) => row.map((cell, col) => cell.padEnd(widths[col]))
+      .join('  ').trimEnd(),
+  );
 }

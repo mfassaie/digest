@@ -1,11 +1,11 @@
-// Phase 1 verification: with a custom DIGEST_DOCUMENT_ROOT, the host writes
+// Live verification: with a custom DIGEST_ARTEFACT_ROOT, the host writes
 // the container-returned content under <root>/cache, and read serves it.
 import { mkdtempSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const root = mkdtempSync(join(tmpdir(), 'digest-docroot-'));
-process.env.DIGEST_DOCUMENT_ROOT = root;
+process.env.DIGEST_ARTEFACT_ROOT = root;
 
 // Imported after the env var is set so the wiring picks the custom root up.
 const { handleGet, handleRead } = await import('@digest/mcp-server');
@@ -29,7 +29,7 @@ const deps = {
 const url = 'https://quotes.toscrape.com/js/';
 
 async function main(): Promise<void> {
-  console.log(`document root = ${root}`);
+  console.log(`artefact root = ${root}`);
   const get = await handleGet({ uri: url, timeout_seconds: 45 }, deps);
   console.log('--- get ---');
   console.log(get.content[0].text.split('\n').slice(0, 8).join('\n'));

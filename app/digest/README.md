@@ -112,24 +112,23 @@ or a specific section. `full` returns the whole document and is opt-in.
 
 ## Configuration
 
-Set via the MCP server's `env` block (or `install --document-root <path>` /
+Set via the MCP server's `env` block (or `install --artefact-root <path>` /
 `install --repo <path>`):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DIGEST_DOCUMENT_ROOT` | `~/.claude/digest` | Base dir holding `cache/` and `logs/`. Each session may set its own. |
+| `DIGEST_ARTEFACT_ROOT` | `~/.claude/digest` | Base dir holding `cache/` and `logs/`. Each session may set its own. |
 | `DIGEST_REPO_ROOT` | – | If set, runs the server from the repo source under a file watcher (dev mode). |
 
-Different sessions can point at different document roots safely — the shared
-container is document-root-agnostic and the host writes into the configured
-root.
+Different sessions can point at different artefact roots safely — the shared
+container is root-agnostic and the host writes into the configured root.
 
 ## How it works
 
 ```
 Claude Code ──stdio──> digest MCP server (host)        [per session]
                          starts/uses ONE shared container, calls it over HTTP
-                         writes cache + logs to this session's document root
+                         writes cache + logs to this session's artefact root
                          ▼
         container (local image, built by `setup`)
           CloakBrowser (CDP) + a fetch/convert service
@@ -139,11 +138,11 @@ Claude Code ──stdio──> digest MCP server (host)        [per session]
 The MCP server auto-starts the shared container on first use and reports a
 clear error (no silent fallback) if Docker or the image is missing. The
 container fetches and converts and returns the content; the host writes it
-into the document root, so one shared container serves all sessions.
+into the artefact root, so one shared container serves all sessions.
 
 ### Cache and logs
 
-Under `DIGEST_DOCUMENT_ROOT` (default `~/.claude/digest`):
+Under `DIGEST_ARTEFACT_ROOT` (default `~/.claude/digest`):
 - `cache/<domain>/<sha256(url)>/`: `raw.<ext>`, `content.md`,
   `structure.json` (heading index), `meta.json` (ETag, Last-Modified,
   document metadata). Repeat fetches are revalidated with conditional

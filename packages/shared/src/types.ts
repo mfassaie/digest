@@ -35,7 +35,7 @@ export interface CacheMeta {
   structureFile?: string;
 }
 
-// Request sent to the in-container service. The container is document-root-
+// Request sent to the in-container service. The container is artefact-root-
 // agnostic, so no cache path is sent — the host writes the returned content.
 export interface ContainerFetchRequest {
   url: string;

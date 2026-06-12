@@ -1,25 +1,26 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
-// Per-session configuration from the MCP `env` block.
-// DIGEST_DOCUMENT_ROOT: base dir holding cache/ and logs/ (default
-//   ~/.claude/digest). Different sessions may set different roots — the
-//   container is document-root-agnostic and the host writes here.
+// Per-session configuration from the MCP `env` block. Roots are env-only
+// (ADR-011) — behaviour lives in settings files (settings/).
+// DIGEST_ARTEFACT_ROOT: base dir holding the artefact store, cache/ and
+//   logs/ (default ~/.claude/digest). Different sessions may set different
+//   roots — the container is root-agnostic and the host writes here.
 // DIGEST_REPO_ROOT: if set, the bin runs the server from the repo source
 //   under a watcher (dev mode).
 
-export function getDocumentRoot(override?: string): string {
+export function getArtefactRoot(override?: string): string {
   return override
-    ?? process.env.DIGEST_DOCUMENT_ROOT
+    ?? process.env.DIGEST_ARTEFACT_ROOT
     ?? join(homedir(), '.claude', 'digest');
 }
 
-export function getCacheRoot(documentRoot?: string): string {
-  return join(getDocumentRoot(documentRoot), 'cache');
+export function getCacheRoot(artefactRoot?: string): string {
+  return join(getArtefactRoot(artefactRoot), 'cache');
 }
 
-export function getLogsDir(documentRoot?: string): string {
-  return join(getDocumentRoot(documentRoot), 'logs');
+export function getLogsDir(artefactRoot?: string): string {
+  return join(getArtefactRoot(artefactRoot), 'logs');
 }
 
 export function getRepoRoot(): string | undefined {

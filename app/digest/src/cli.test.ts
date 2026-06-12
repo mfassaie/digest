@@ -95,6 +95,19 @@ describe('parseArgs', () => {
       scope: 'project',
     });
   });
+
+  it('captures --artefact-root and --repo values', () => {
+    const result = parseArgs([
+      'node', 'index.js', 'install',
+      '--artefact-root', '/tmp/store', '--repo', '/repo/digest',
+    ]);
+    expect(result).toEqual({
+      subcommand: 'install',
+      scope: 'project',
+      artefactRoot: '/tmp/store',
+      repoRoot: '/repo/digest',
+    });
+  });
 });
 
 describe('printUsage', () => {
@@ -109,6 +122,7 @@ describe('printUsage', () => {
     expect(output).toContain('doctor');
     expect(output).toContain('install');
     expect(output).toContain('uninstall');
+    expect(output).toContain('--artefact-root');
     expect(output).toContain('--help');
     expect(output).toContain('--version');
     spy.mockRestore();

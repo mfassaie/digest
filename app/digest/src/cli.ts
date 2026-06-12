@@ -29,7 +29,7 @@ export function parseArgs(
   return {
     subcommand: sub as CliArgs['subcommand'],
     scope,
-    documentRoot: flag('--document-root'),
+    artefactRoot: flag('--artefact-root'),
     repoRoot: flag('--repo'),
   };
 }
@@ -44,7 +44,7 @@ Commands:
   uninstall [--scope project|global]  Remove MCP server
 
 Install options:
-  --document-root <path>   Set DIGEST_DOCUMENT_ROOT for the MCP server
+  --artefact-root <path>   Set DIGEST_ARTEFACT_ROOT for the MCP server
   --repo <path>            Set DIGEST_REPO_ROOT (dev mode: run from source)
 
 Options:

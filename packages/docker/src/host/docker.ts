@@ -73,7 +73,7 @@ async function mappedPort(r: CommandRunner): Promise<number> {
 }
 
 // Ensure the (single, shared) container is running and healthy, returning its
-// base URL. The container is document-root-agnostic — it returns content over
+// base URL. The container is artefact-root-agnostic — it returns content over
 // HTTP and the host writes it — so there is no bind-mount.
 export async function ensureContainer(
   r: CommandRunner,

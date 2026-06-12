@@ -77,7 +77,7 @@ if (sub === '--help') {
     process.exit(1);
   }
   runCli(args.subcommand, args.scope, {
-    documentRoot: args.documentRoot, repoRoot: args.repoRoot,
+    artefactRoot: args.artefactRoot, repoRoot: args.repoRoot,
   }).catch((err) => {
     console.error(err instanceof Error
       ? err.message : String(err));
@@ -94,7 +94,7 @@ if (sub === '--help') {
 async function runCli(
   subcommand: 'install' | 'uninstall',
   scope: 'project' | 'global',
-  env: { documentRoot?: string; repoRoot?: string } = {},
+  env: { artefactRoot?: string; repoRoot?: string } = {},
 ): Promise<void> {
   const target = scope === 'global'
     ? resolveGlobalTarget()

@@ -5,7 +5,7 @@ import { readJsonFile, writeJsonFile } from
   './cli-json.js';
 
 export interface McpEnvOpts {
-  documentRoot?: string;
+  artefactRoot?: string;
   repoRoot?: string;
 }
 
@@ -14,7 +14,7 @@ export function buildMcpEntry(
 ): Record<string, unknown> {
   const isWin = platform() === 'win32';
   const env: Record<string, string> = { NODE_OPTIONS: '--use-system-ca' };
-  if (opts.documentRoot) env.DIGEST_DOCUMENT_ROOT = opts.documentRoot;
+  if (opts.artefactRoot) env.DIGEST_ARTEFACT_ROOT = opts.artefactRoot;
   if (opts.repoRoot) env.DIGEST_REPO_ROOT = opts.repoRoot;
   return {
     command: isWin ? 'cmd' : 'npx',

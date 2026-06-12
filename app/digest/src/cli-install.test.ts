@@ -67,6 +67,23 @@ describe('buildHookCommand', () => {
   });
 });
 
+describe('buildMcpEntry', () => {
+  it('writes DIGEST_ARTEFACT_ROOT and DIGEST_REPO_ROOT when given', () => {
+    const entry = buildMcpEntry({
+      artefactRoot: '/tmp/store', repoRoot: '/repo/digest',
+    }) as { env: Record<string, string> };
+    expect(entry.env.DIGEST_ARTEFACT_ROOT).toBe('/tmp/store');
+    expect(entry.env.DIGEST_REPO_ROOT).toBe('/repo/digest');
+  });
+
+  it('omits the root env vars by default', () => {
+    const entry = MCP_ENTRY as { env: Record<string, string> };
+    expect(entry.env.DIGEST_ARTEFACT_ROOT).toBeUndefined();
+    expect(entry.env.DIGEST_REPO_ROOT).toBeUndefined();
+    expect(entry.env.NODE_OPTIONS).toBe('--use-system-ca');
+  });
+});
+
 describe('addMcpServer', () => {
   it('adds mcpServers to empty config', () => {
     const result = addMcpServer({});

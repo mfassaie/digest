@@ -14,8 +14,8 @@ export interface FetchInput {
   validators?: { etag?: string; lastModified?: string };
 }
 
-// The container is document-root-agnostic: it returns the fetched + converted
-// content and the host writes it into the session's document root. `raw` is
+// The container is artefact-root-agnostic: it returns the fetched + converted
+// content and the host writes it into the session's artefact root. `raw` is
 // always base64 (uniform across text and binary); `markdown` is present for
 // converted HTML.
 export interface FetchContent {
@@ -101,7 +101,7 @@ async function preflight(
 
 // Orchestrates one fetch: pre-flight (redirects/validators), content-type
 // branch, render+convert HTML or return raw bytes. Returns content; the host
-// writes it into the session's document root.
+// writes it into the session's artefact root.
 export async function orchestrateFetch(
   engine: BrowserEngine,
   input: FetchInput,

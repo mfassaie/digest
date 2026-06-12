@@ -9,7 +9,7 @@ let root: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'falk-log-'));
-  process.env.DIGEST_DOCUMENT_ROOT = root;
+  process.env.DIGEST_ARTEFACT_ROOT = root;
 });
 
 afterEach(() => {
@@ -34,7 +34,7 @@ describe('logLine', () => {
   it('never throws when the log dir cannot be created', () => {
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     // NUL byte is invalid in paths on all platforms, so mkdir fails.
-    process.env.DIGEST_DOCUMENT_ROOT = join(root, 'bad\0dir');
+    process.env.DIGEST_ARTEFACT_ROOT = join(root, 'bad\0dir');
     expect(() => logLine('error', 'still fine')).not.toThrow();
   });
 });

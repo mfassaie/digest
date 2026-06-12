@@ -2,7 +2,7 @@ import { appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { getLogsDir } from './config.js';
 
-// All server logs live under <document-root>/logs. The host server also keeps
+// All server logs live under <artefact-root>/logs. The host server also keeps
 // writing to stderr (stdout is the MCP protocol). The container log follower
 // is a Docker concern and lives in @digest/docker (log-follower.ts).
 

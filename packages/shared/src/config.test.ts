@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { join } from 'node:path';
 import {
-  getDocumentRoot, getCacheRoot, getLogsDir, getRepoRoot, isDevMode,
+  getArtefactRoot, getCacheRoot, getLogsDir, getRepoRoot, isDevMode,
 } from './config.js';
 
 const ENV = { ...process.env };
@@ -10,17 +10,17 @@ afterEach(() => {
 });
 
 describe('config', () => {
-  it('defaults the document root under ~/.claude/digest', () => {
-    delete process.env.DIGEST_DOCUMENT_ROOT;
-    expect(getDocumentRoot().replace(/\\/g, '/'))
+  it('defaults the artefact root under ~/.claude/digest', () => {
+    delete process.env.DIGEST_ARTEFACT_ROOT;
+    expect(getArtefactRoot().replace(/\\/g, '/'))
       .toContain('.claude/digest');
     expect(getCacheRoot().replace(/\\/g, '/')).toContain('.claude/digest/cache');
     expect(getLogsDir().replace(/\\/g, '/')).toContain('.claude/digest/logs');
   });
 
-  it('honours DIGEST_DOCUMENT_ROOT for cache and logs', () => {
-    process.env.DIGEST_DOCUMENT_ROOT = join('/tmp', 'mydocs');
-    expect(getDocumentRoot()).toBe(join('/tmp', 'mydocs'));
+  it('honours DIGEST_ARTEFACT_ROOT for cache and logs', () => {
+    process.env.DIGEST_ARTEFACT_ROOT = join('/tmp', 'mydocs');
+    expect(getArtefactRoot()).toBe(join('/tmp', 'mydocs'));
     expect(getCacheRoot()).toBe(join('/tmp', 'mydocs', 'cache'));
     expect(getLogsDir()).toBe(join('/tmp', 'mydocs', 'logs'));
   });
