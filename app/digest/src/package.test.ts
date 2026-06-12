@@ -47,6 +47,11 @@ describe('SPEC-015: npm package tarball contents', () => {
     expect(distFiles.length).toBeGreaterThan(0);
   });
 
+  it('contains the generated artefact schemas (plan M2)', () => {
+    expect(files).toContain('dist/digest.schema.json');
+    expect(files).toContain('dist/artefact-index.schema.json');
+  });
+
   it('contains package.json', () => {
     expect(files).toContain('package.json');
   });

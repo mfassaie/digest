@@ -2,6 +2,9 @@ import { build } from 'esbuild';
 import { chmodSync, cpSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import {
+  buildArtefactIndexJsonSchema, buildDigestJsonSchema,
+} from '@digest/shared';
 import { settingsJsonSchema } from '@digest/shared/settings';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -29,6 +32,18 @@ chmodSync(join(here, 'dist', 'index.js'), 0o755);
 writeFileSync(
   join(here, 'dist', 'digest-settings.schema.json'),
   JSON.stringify(settingsJsonSchema(), null, 2) + '\n',
+);
+
+// Artefact store record schemas (plan M2, ADR-011 §2.1/§2.2): generated
+// from the zod source in @digest/shared so digest.json /
+// artefact-index.json validation cannot drift from what the store writes.
+writeFileSync(
+  join(here, 'dist', 'digest.schema.json'),
+  JSON.stringify(buildDigestJsonSchema(), null, 2) + '\n',
+);
+writeFileSync(
+  join(here, 'dist', 'artefact-index.schema.json'),
+  JSON.stringify(buildArtefactIndexJsonSchema(), null, 2) + '\n',
 );
 
 // Copy @digest/docker's generated image build context into the published
