@@ -1,7 +1,8 @@
 import { build } from 'esbuild';
-import { chmodSync, cpSync, existsSync, rmSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { settingsJsonSchema } from '@digest/shared/settings';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +21,15 @@ await build({
   logLevel: 'info',
 });
 chmodSync(join(here, 'dist', 'index.js'), 0o755);
+
+// Settings JSON schema for editor validation of settings files
+// (digest.settings.json / ~/.config/digest/settings.json). Generated from
+// the same zod source the loader validates with, so file schema and
+// runtime validation cannot drift (per-type pipelines design §4.2).
+writeFileSync(
+  join(here, 'dist', 'digest-settings.schema.json'),
+  JSON.stringify(settingsJsonSchema(), null, 2) + '\n',
+);
 
 // Copy @digest/docker's generated image build context into the published
 // payload. app/digest/docker is generated output (gitignored); `digest
