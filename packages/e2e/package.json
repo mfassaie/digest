@@ -6,12 +6,18 @@
   "description": "End-to-end tests: drive the built host handlers against a live digest:local container",
   "scripts": {
     "test": "tsx verify-dev.ts",
+    "test:coverage": "node -e \"console.log('no unit tests here: live e2e scripts only')\"",
     "e2e": "tsx e2e-host.ts",
     "verify:dev": "tsx verify-dev.ts",
-    "verify:docroot": "tsx verify-docroot.ts"
+    "verify:docroot": "tsx verify-docroot.ts",
+    "lint": "tsc --noEmit"
   },
   "devDependencies": {
+    "@digest/docker": "workspace:*",
+    "@digest/mcp-server": "workspace:*",
+    "@digest/shared": "workspace:*",
     "@types/node": "^25.5.0",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.2"
   }
 }

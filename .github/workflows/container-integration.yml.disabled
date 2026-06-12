@@ -24,14 +24,11 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
-      - name: Build service bundle
-        run: pnpm --filter @digest/fetch-service build
+      - name: Build all packages (image context + host bundle)
+        run: pnpm build
 
       - name: Build local image (never pushed)
-        run: docker build -t digest:local packages/digest/docker
-
-      - name: Build host
-        run: pnpm build
+        run: docker build -t digest:local app/digest/docker
 
       - name: Run end-to-end against the live container
         run: pnpm dlx tsx packages/e2e/e2e-host.ts

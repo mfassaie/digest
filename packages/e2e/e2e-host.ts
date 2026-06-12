@@ -6,17 +6,19 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { handleGet, handleRead } from '../digest/src/server.js';
-import { realRunner, ensureContainer, CONTAINER } from '../digest/src/docker.js';
-import { containerFetch } from '../digest/src/container-client.js';
-import { extractiveEngine } from '../digest/src/read-engine.js';
+import { handleGet, handleRead } from '@digest/mcp-server';
+import {
+  realRunner, ensureContainer, containerFetch, CONTAINER,
+} from '@digest/docker';
+import { extractiveEngine } from '@digest/shared';
 
 const cacheRoot = mkdtempSync(join(tmpdir(), 'falk-e2e-'));
 const deps = {
-  runner: realRunner,
+  transport: {
+    ensure: () => ensureContainer(realRunner, {}),
+    fetch: containerFetch,
+  },
   cacheRoot,
-  ensureFn: ensureContainer,
-  fetchFn: containerFetch,
   engine: extractiveEngine,
 };
 

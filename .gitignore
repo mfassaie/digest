@@ -5,6 +5,9 @@ digest.code-workspace
 node_modules/
 dist/
 coverage/
+# Generated image build context, copied from packages/docker/dist/docker by
+# the app build (the npm "files" whitelist still ships it).
+app/digest/docker/
 *.tsbuildinfo
 .falk
 .obsidian/

@@ -8,8 +8,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm --filter @mfassaie/digest run build",
-    "lint": "pnpm --filter @mfassaie/digest run lint",
-    "test": "pnpm --filter @mfassaie/digest run test"
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:coverage": "pnpm -r test:coverage"
   }
 }

@@ -8,11 +8,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { handleGet, handleRead } from '../digest/src/server.js';
-import { realRunner, ensureContainer, CONTAINER } from '../digest/src/docker.js';
-import { containerFetch } from '../digest/src/container-client.js';
-import { getCacheDir } from '../digest/src/cache.js';
-import { extractiveEngine } from '../digest/src/read-engine.js';
+import { handleGet, handleRead } from '@digest/mcp-server';
+import {
+  realRunner, ensureContainer, containerFetch, CONTAINER,
+} from '@digest/docker';
+import { getCacheDir, extractiveEngine } from '@digest/shared';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, 'fixtures');
@@ -60,8 +60,11 @@ const E2E_REVIEW = new Set([
 
 const cacheRoot = mkdtempSync(join(tmpdir(), 'falk-real-'));
 const deps = {
-  runner: realRunner, cacheRoot,
-  ensureFn: ensureContainer, fetchFn: containerFetch,
+  transport: {
+    ensure: () => ensureContainer(realRunner, {}),
+    fetch: containerFetch,
+  },
+  cacheRoot,
   engine: extractiveEngine,
 };
 

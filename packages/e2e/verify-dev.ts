@@ -5,8 +5,10 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
-// The digest host package (its src/ + dist/) lives under packages/digest.
-const pkg = join(dirname(fileURLToPath(import.meta.url)), '..', 'digest');
+// The digest host package (its src/ + dist/) lives under app/digest.
+const pkg = join(
+  dirname(fileURLToPath(import.meta.url)), '..', '..', 'app', 'digest',
+);
 const bin = join(pkg, 'dist', 'index.js');
 
 const child = spawn(process.execPath, [bin], {

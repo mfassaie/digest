@@ -9,7 +9,8 @@
     "score": "tsx src/run-all.ts --score-only",
     "real": "tsx src/run-real.ts",
     "capture": "tsx capture.ts",
-    "typecheck": "tsc --noEmit"
+    "test:coverage": "node -e \"console.log('no unit tests here: eval harness only')\"",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@mozilla/readability": "^0.5.0",
@@ -26,6 +27,9 @@
     "unified": "^11.0.5"
   },
   "devDependencies": {
+    "@digest/docker": "workspace:*",
+    "@digest/mcp-server": "workspace:*",
+    "@digest/shared": "workspace:*",
     "@types/node": "^25.5.0",
     "@types/turndown": "^5.0.5",
     "tsx": "^4.19.2",

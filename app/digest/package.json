@@ -1,0 +1,60 @@
+{
+  "name": "@mfassaie/digest",
+  "version": "0.2.0",
+  "type": "module",
+  "description": "MCP server that fetches web pages via a headless browser (CloakBrowser in Docker) and serves structured Markdown: summary, sections, keywords or full text",
+  "bin": {
+    "digest": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "docker"
+  ],
+  "scripts": {
+    "build": "tsx build.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mfassaie/digest.git"
+  },
+  "homepage": "https://github.com/mfassaie/digest",
+  "bugs": {
+    "url": "https://github.com/mfassaie/digest/issues"
+  },
+  "author": "Mehdi Fassaie",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "webfetch",
+    "web-scraping",
+    "content-extraction",
+    "headless-browser",
+    "claude-code"
+  ],
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@digest/docker": "workspace:*",
+    "@digest/mcp-server": "workspace:*",
+    "@digest/shared": "workspace:*",
+    "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "esbuild": "^0.28.0",
+    "mcp-testing-kit": "0.2.0",
+    "tsx": "^4.19.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}

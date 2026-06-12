@@ -30,37 +30,31 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck fetch-service
-        run: pnpm --filter @digest/fetch-service typecheck
-
       - name: Build
         run: pnpm build
 
-      - name: Test (host)
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
         run: pnpm test
 
-      - name: Test (fetch-service)
-        run: pnpm --filter @digest/fetch-service test
-
       - name: Bump patch version
-        working-directory: packages/digest
+        working-directory: app/digest
         run: npm version patch --no-git-tag-version
 
       - name: Commit and push version bump
         run: |
-          VERSION=$(node -p "require('./packages/digest/package.json').version")
+          VERSION=$(node -p "require('./app/digest/package.json').version")
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add packages/digest/package.json
+          git add app/digest/package.json
           git commit -m "chore: bump version to ${VERSION} [skip ci]"
           git pull --rebase
           git push
 
       - name: Publish to npm
-        working-directory: packages/digest
+        working-directory: app/digest
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
