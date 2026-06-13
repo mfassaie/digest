@@ -7,8 +7,7 @@
     "digest": "dist/index.js"
   },
   "files": [
-    "dist",
-    "docker"
+    "dist"
   ],
   "scripts": {
     "build": "tsx build.ts",

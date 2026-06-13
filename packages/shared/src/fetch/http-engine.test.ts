@@ -145,14 +145,31 @@ describe('httpFetch', () => {
   });
 
   it('retries a network failure within the retry budget', async () => {
+    const seen: { url: string; headers: Headers }[] = [];
     const { fetchImpl } = scripted([
       { reject: new TypeError('fetch failed') },
       { status: 200, body: 'second try' },
-    ]);
+    ], seen);
     const out = await httpFetch(
       request('https://ex.com/a.md', { retries: 1 }), { fetchImpl },
     );
     expect(out.outcome).toBe('fetched');
+    expect(seen).toHaveLength(2);
+  });
+
+  it('retry exhaustion returns fetch-failed, not timeout', async () => {
+    const seen: { url: string; headers: Headers }[] = [];
+    const { fetchImpl } = scripted([
+      { reject: new TypeError('fetch failed') },
+      { reject: new TypeError('fetch failed') },
+    ], seen);
+    const out = await httpFetch(
+      request('https://ex.com/a.md', { retries: 1 }), { fetchImpl },
+    );
+    expect(out.outcome).toBe('fetch-failed');
+    expect((out as { reason: string }).reason)
+      .toContain('fetch failed');
+    expect(seen).toHaveLength(2);
   });
 
   it('reports fetch-failed with the cause code after retries run out',
@@ -200,5 +217,28 @@ describe('httpFetch', () => {
     const out = await httpFetch(request('not a url'), { fetchImpl });
     expect(out.outcome).toBe('fetch-failed');
     expect((out as { reason: string }).reason).toContain('invalid URL');
+  });
+
+  it('gives each retry its own timeout budget', async () => {
+    // First attempt: network error (retryable). Second: 200 OK.
+    // With a shared deadline this would work only if the first attempt
+    // was fast. The per-attempt signal ensures retry 2 gets a full
+    // budget independent of attempt 1.
+    const { fetchImpl } = scripted([
+      { reject: new TypeError('fetch failed') },
+      { status: 200, body: 'retry ok' },
+    ]);
+    const out = await httpFetch(
+      request('https://ex.com/a.md', {
+        timeoutSeconds: 0.1,
+        retries: 1,
+      }),
+      { fetchImpl },
+    );
+    expect(out.outcome).toBe('fetched');
+    const fetched = out as Extract<
+      HttpFetchOutcome, { outcome: 'fetched' }
+    >;
+    expect(Buffer.from(fetched.bytes).toString('utf8')).toBe('retry ok');
   });
 });

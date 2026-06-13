@@ -104,6 +104,75 @@ describe('defuddleHtml', () => {
   });
 });
 
+describe('real-world HTML fixtures', () => {
+  it('strips nav/footer boilerplate from nested div structure', async () => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><title>Article</title></head>
+<body>
+<nav><a href="/">Home</a><a href="/about">About Us</a></nav>
+<div><div><div>
+<article>
+<h1>Title</h1>
+<p>Content paragraph.</p>
+</article>
+</div></div></div>
+<footer><p>Copyright 2024 Example Corp</p></footer>
+</body>
+</html>`;
+    const result = await defuddleHtml(
+      html, 'https://example.com/article',
+    );
+    expect(result.markdown).toContain('Title');
+    expect(result.markdown).toContain('Content paragraph');
+    expect(result.markdown).not.toContain('About Us');
+    expect(result.markdown).not.toContain('Copyright 2024');
+  });
+
+  it('ignores noscript fallback content', async () => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><title>NoScript Test</title></head>
+<body>
+<noscript>Enable JavaScript</noscript>
+<article>
+<h1>Real Content</h1>
+<p>Visible text.</p>
+</article>
+</body>
+</html>`;
+    const result = await defuddleHtml(
+      html, 'https://example.com/noscript',
+    );
+    expect(result.markdown).toContain('Real Content');
+    expect(result.markdown).toContain('Visible text');
+    expect(result.markdown).not.toContain('Enable JavaScript');
+  });
+
+  it('strips inline script and style blocks', async () => {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><title>Script Test</title></head>
+<body>
+<style>.foo { color: red; }</style>
+<script>console.log('track')</script>
+<article>
+<h1>Clean</h1>
+<p>Article body.</p>
+</article>
+</body>
+</html>`;
+    const result = await defuddleHtml(
+      html, 'https://example.com/scripts',
+    );
+    expect(result.markdown).toContain('Clean');
+    expect(result.markdown).toContain('Article body');
+    expect(result.markdown).not.toContain('color: red');
+    expect(result.markdown).not.toContain('console.log');
+    expect(result.markdown).not.toContain('track');
+  });
+});
+
 describe('convertHtmlFile', () => {
   it('creates a document Digest from an HTML file Digest', async () => {
     const fileDigest = await store.createDigest({

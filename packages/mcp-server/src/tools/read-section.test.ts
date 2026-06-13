@@ -174,6 +174,35 @@ describe('handleReadSection', () => {
     expect(message).toContain(doc.document.sections.id);
   });
 
+  it('caps listed valid ids at 20 for large documents', async () => {
+    // Generate markdown with 25 headings (root + 25 = 26 sections).
+    const lines: string[] = [];
+    for (let i = 1; i <= 25; i++) {
+      lines.push(`## Section ${i}`, '', `Body of section ${i}.`, '');
+    }
+    const bigDoc = lines.join('\n');
+    const d = deps(server(bigDoc));
+    const doc = await setupDocument(d);
+
+    const out = await handleReadSection({
+      artefact_id: doc.id,
+      section_id: 'ZZZZZZZZZZZZZZZZZZZZZZ',
+    }, d);
+    expect(out.isError).toBe(true);
+    const message = out.content[0].text;
+    expect(message).toContain('unknown section id(s)');
+
+    // 26 valid ids (root + 25 headings) > 20 cap.
+    expect(message).toContain('and 6 more');
+    expect(message).toContain('read_document');
+
+    // Count comma-separated ids listed before the "..." truncation.
+    const idsMatch = message.match(/Valid ids in this artefact: (.+?)\.\.\./)!;
+    expect(idsMatch).not.toBeNull();
+    const listedIds = idsMatch[1].split(', ');
+    expect(listedIds).toHaveLength(20);
+  });
+
   it('errors when some ids in a batch are unknown', async () => {
     const d = deps();
     const doc = await setupDocument(d);
@@ -266,4 +295,107 @@ describe('handleReadSection', () => {
     expect(body.sections[0].type).toBe('root');
     expect(body.sections[0].id).toBe(rootId);
   });
+
+  it('oversized section with zero children omits child_ids entirely',
+    async () => {
+      // A single big paragraph with no headings: the root section has
+      // content above the threshold but no children at all.
+      const bigValue = 'x'.repeat(60_000);
+      const bigMd = bigValue;
+      const d = deps(server(bigMd));
+      await handleFetchFile({ uri: MD_URL }, d);
+      const readResult = await handleReadDocument(
+        { resource: MD_URL }, d,
+      );
+      const doc = JSON.parse(readResult.content[0].text) as {
+        id: string;
+        document: { sections: TocSection };
+      };
+      const rootId = doc.document.sections.id;
+      // Root should have no children in this document.
+      expect(doc.document.sections.children).toBeUndefined();
+
+      const out = await handleReadSection({
+        artefact_id: doc.id, section_id: rootId,
+      }, d);
+      expect(out.isError).toBeUndefined();
+      const body = JSON.parse(out.content[0].text) as {
+        sections: {
+          truncated?: boolean;
+          content?: unknown;
+          children?: unknown;
+          child_ids?: string[];
+        }[];
+      };
+      const section = body.sections[0];
+      expect(section.truncated).toBe(true);
+      expect(section.content).toBeUndefined();
+      // child_ids must be absent (not an empty array) when there are
+      // no children.
+      expect(section.child_ids).toBeUndefined();
+      expect('child_ids' in section).toBe(false);
+    });
+
+  it('batch requests skip oversized truncation', async () => {
+    // The oversize guard only fires for requestedIds.length === 1.
+    // A batch request should return full content even for large sections.
+    const bigValue = 'x'.repeat(60_000);
+    const bigMd = `${bigValue}\n\n# Section\n\nSmall.\n`;
+    const d = deps(server(bigMd));
+    await handleFetchFile({ uri: MD_URL }, d);
+    const readResult = await handleReadDocument(
+      { resource: MD_URL }, d,
+    );
+    const doc = JSON.parse(readResult.content[0].text) as {
+      id: string;
+      document: { sections: TocSection };
+    };
+    const rootId = doc.document.sections.id;
+    const childId = doc.document.sections.children![0].id;
+
+    const out = await handleReadSection({
+      artefact_id: doc.id, section_id: [rootId, childId],
+    }, d);
+    expect(out.isError).toBeUndefined();
+    const body = JSON.parse(out.content[0].text) as {
+      sections: {
+        id: string;
+        truncated?: boolean;
+        content?: unknown[];
+      }[];
+    };
+    expect(body.sections).toHaveLength(2);
+    // Root has oversized content but is NOT truncated in a batch.
+    const rootSection = body.sections.find((s) => s.id === rootId)!;
+    expect(rootSection.truncated).toBeUndefined();
+    expect(rootSection.content).toBeDefined();
+  });
+
+  it('preserves meta field on a section through projectSection',
+    async () => {
+      // Build a markdown document, then patch a section's meta in the
+      // store to verify projectSection passes it through.
+      const d = deps();
+      const doc = await setupDocument(d);
+      const installId = doc.document.sections.children![0].id;
+
+      // Inject a meta field onto the Install section.
+      await d.store.updateDigest(doc.id, {
+        mutate: (digest) => {
+          const install = digest.document!.sections.children![0];
+          (install as { meta?: Record<string, unknown> }).meta = {
+            page_range: '3-5',
+          };
+        },
+      });
+
+      const out = await handleReadSection({
+        artefact_id: doc.id, section_id: installId,
+      }, d);
+      expect(out.isError).toBeUndefined();
+      const body = JSON.parse(out.content[0].text) as {
+        sections: { id: string; meta?: Record<string, unknown> }[];
+      };
+      expect(body.sections[0].meta).toEqual({ page_range: '3-5' });
+    });
 });

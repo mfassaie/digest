@@ -157,4 +157,71 @@ describe('planChunks — bytes strategy', () => {
   it('returns empty for zero bytes', () => {
     expect(planChunks(0, bytesStrategy)).toEqual([]);
   });
+
+  it('byte-range chunks span entire file with no gaps or overlaps', () => {
+    const totalBytes = 500_000;
+    const strategy: ChunkStrategy = {
+      strategy: 'bytes', chunk_bytes: 65_536,
+    };
+    const chunks = planChunks(totalBytes, strategy);
+
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks[0]!.byteStart).toBe(0);
+    expect(chunks[chunks.length - 1]!.byteEnd).toBe(totalBytes);
+
+    for (let i = 0; i < chunks.length - 1; i++) {
+      expect(chunks[i]!.byteEnd).toBe(chunks[i + 1]!.byteStart);
+    }
+
+    for (const chunk of chunks) {
+      expect(chunk.chunkMeta).toMatch(/^bytes \d+-\d+$/);
+    }
+  });
+});
+
+describe('planChunks — large section document', () => {
+  const sectionsStrategy: ChunkStrategy = { strategy: 'sections' };
+
+  it('section chunks cover 25 sections with preamble', () => {
+    // Build a markdown document with a preamble and 25 top-level
+    // headings, each followed by a line of body text.
+    const preambleText = 'This is the preamble.\n\n';
+    const preambleBytes = Buffer.byteLength(preambleText, 'utf8');
+    let offset = preambleBytes;
+
+    const sections: DocumentSection[] = [];
+    for (let i = 1; i <= 25; i++) {
+      const sectionText = `# Section ${i}\n\nBody of section ${i}.\n\n`;
+      const sectionBytes = Buffer.byteLength(sectionText, 'utf8');
+      sections.push(section({
+        title: `Section ${i}`,
+        index: i - 1,
+        position: { start: offset, end: offset + sectionBytes },
+      }));
+      offset += sectionBytes;
+    }
+
+    const totalBytes = offset;
+    const chunks = planChunks(totalBytes, sectionsStrategy, sections);
+
+    // 1 preamble + 25 sections = 26 chunks
+    expect(chunks).toHaveLength(26);
+
+    // First chunk is the preamble
+    expect(chunks[0]!.chunkMeta).toBe('preamble');
+    expect(chunks[0]!.byteStart).toBe(0);
+    expect(chunks[0]!.byteEnd).toBe(preambleBytes);
+
+    // Remaining chunks carry section titles
+    for (let i = 1; i <= 25; i++) {
+      expect(chunks[i]!.chunkMeta).toBe(`Section ${i}`);
+    }
+
+    // Full coverage: starts at 0, ends at totalBytes, no gaps
+    expect(chunks[0]!.byteStart).toBe(0);
+    expect(chunks[chunks.length - 1]!.byteEnd).toBe(totalBytes);
+    for (let i = 0; i < chunks.length - 1; i++) {
+      expect(chunks[i]!.byteEnd).toBe(chunks[i + 1]!.byteStart);
+    }
+  });
 });

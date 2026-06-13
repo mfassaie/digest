@@ -388,6 +388,26 @@ describe('index', () => {
   });
 });
 
+describe('concurrent upserts', () => {
+  it('serialises 8 parallel creates without losing index entries',
+    async () => {
+      const uris = Array.from(
+        { length: 8 }, (_, i) => `https://example.com/p${i}.md`,
+      );
+      await Promise.all(uris.map((uri) => store.createDigest({
+        originUri: uri,
+        type: 'file',
+        file: { name: 'f.md', mimeType: 'text/markdown', bytes: uri },
+      })));
+      await store.flush();
+      const raw = readFileSync(store.paths.indexPath, 'utf8');
+      const entries = JSON.parse(raw) as { artefact_id: string }[];
+      expect(entries).toHaveLength(8);
+      const ids = new Set(entries.map((e) => e.artefact_id));
+      expect(ids.size).toBe(8);
+    });
+});
+
 describe('safeFileName', () => {
   it('neutralises separators, reserved chars and control chars', () => {
     expect(safeFileName('a/b\\c:d*e?f"g<h>i|j.md'))

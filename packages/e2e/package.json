@@ -6,13 +6,15 @@
   "description": "End-to-end tests: verify-dev, verify-store, verify-settings (no Docker); e2e, verify-docroot (Docker-dependent)",
   "scripts": {
     "comment:deferred": "TODO: verify-html (Docker-dependent HTML test via container dispatch) and concurrent-fetch (parallel fetch stress test) need a running Docker daemon and the rebuilt digest:local image. Implement when the container is available.",
-    "test": "tsx verify-dev.ts && tsx verify-store.ts && tsx verify-settings.ts",
+    "test": "tsx verify-dev.ts && tsx verify-store.ts && tsx verify-settings.ts && tsx verify-concurrent.ts",
+    "verify:concurrent": "tsx verify-concurrent.ts",
     "test:coverage": "node -e \"console.log('no unit tests here: live e2e scripts only')\"",
     "e2e": "tsx e2e-host.ts",
     "verify:dev": "tsx verify-dev.ts",
     "verify:docroot": "tsx verify-docroot.ts",
     "verify:store": "tsx verify-store.ts",
     "verify:settings": "tsx verify-settings.ts",
+    "verify:container": "tsx verify-container.ts",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {

@@ -49,9 +49,8 @@ writeFileSync(
   JSON.stringify(buildArtefactIndexJsonSchema(), null, 2) + '\n',
 );
 
-// Copy @digest/docker's generated image build context into the published
-// payload. app/digest/docker is generated output (gitignored); `digest
-// setup` builds the image from it after npm install.
+// Copy @digest/docker's generated image build context into dist/docker/
+// so the published package ships it and `digest setup` can build the image.
 const contextSrc = join(
   here, '..', '..', 'packages', 'docker', 'dist', 'docker',
 );
@@ -61,8 +60,8 @@ if (!existsSync(join(contextSrc, 'service.mjs'))) {
     '(pnpm -r build, or pnpm --filter @digest/docker build).',
   );
 }
-const contextDest = join(here, 'docker');
+const contextDest = join(here, 'dist', 'docker');
 rmSync(contextDest, { recursive: true, force: true });
 cpSync(contextSrc, contextDest, { recursive: true });
 
-process.stderr.write('Built dist/index.js and copied the docker/ context\n');
+process.stderr.write('Built dist/index.js and copied dist/docker/ context\n');

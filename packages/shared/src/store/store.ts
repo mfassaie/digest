@@ -71,6 +71,9 @@ export interface ArtefactStore {
   writeChunk(id: string, params: WriteChunkParams): Promise<FileChunk>;
   readIndex(): Promise<ArtefactIndexEntry[]>;
   readIndexEntry(id: string): Promise<ArtefactIndexEntry | null>;
+  // Drain the index write queue. Await before process exit to prevent
+  // losing queued index writes.
+  flush(): Promise<void>;
 }
 
 export interface ArtefactStoreOptions {
@@ -202,9 +205,10 @@ export function createArtefactStore(
     return { origin_etag, fresh_until, last_modified, last_fetched };
   }
 
-  // Upsert keyed by artefact_id: created_at survives, web-cache fields are
-  // carried over unless overridden, updated_at takes the operation stamp.
-  async function upsertIndex(
+  let indexQueue: Promise<void> = Promise.resolve();
+
+  // The actual read-upsert-write cycle, called only from the queue.
+  async function doUpsertIndex(
     digest: Digest, cache: IndexCacheFields | undefined,
     stamp: string | undefined,
   ): Promise<void> {
@@ -231,6 +235,19 @@ export function createArtefactStore(
     else entries.push(res.data);
     await mkdir(artefactRoot, { recursive: true });
     await writeJsonAtomic(indexPath, entries);
+  }
+
+  // Serialise index mutations so concurrent fetches cannot lose entries.
+  function upsertIndex(
+    digest: Digest, cache: IndexCacheFields | undefined,
+    stamp: string | undefined,
+  ): Promise<void> {
+    const result = indexQueue.then(
+      () => doUpsertIndex(digest, cache, stamp),
+    );
+    // Isolate failures: a rejected write must not break the chain.
+    indexQueue = result.catch(() => {});
+    return result;
   }
 
   return {
@@ -364,6 +381,10 @@ export function createArtefactStore(
       assertArtefactId(id);
       const entries = await readIndexFile();
       return entries.find((e) => e.artefact_id === id) ?? null;
+    },
+
+    async flush() {
+      await indexQueue;
     },
   };
 }

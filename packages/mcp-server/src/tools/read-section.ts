@@ -149,10 +149,16 @@ export async function handleReadSection(
   const validIds = collectIds(root);
   const unknownIds = requestedIds.filter((id) => !validIds.includes(id));
   if (unknownIds.length > 0) {
+    const CAP = 20;
+    const listed = validIds.slice(0, CAP).join(', ');
+    const suffix = validIds.length > CAP
+      ? ` ... and ${validIds.length - CAP} more.` +
+        ' Use read_document to browse the full section tree.'
+      : '';
     return text(formatError(
       args.artefact_id,
       `unknown section id(s): ${unknownIds.join(', ')}. ` +
-      `Valid ids in this artefact: ${validIds.join(', ')}`,
+      `Valid ids in this artefact: ${listed}${suffix}`,
     ), true);
   }
 

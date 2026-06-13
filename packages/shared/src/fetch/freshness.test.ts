@@ -84,9 +84,10 @@ describe('computeFreshUntil', () => {
   });
 
   it('computes from Expires header when cache-control is absent', () => {
-    const now = new Date('2026-06-13T10:00:00Z');
+    const now = new Date();
+    const future = new Date(now.getTime() + 2 * 3600_000);
     const result = computeFreshUntil(
-      { expires: 'Fri, 13 Jun 2026 12:00:00 GMT' }, { now },
+      { expires: future.toUTCString() }, { now },
     );
     // Should have a defined future timestamp.
     expect(result).toBeDefined();

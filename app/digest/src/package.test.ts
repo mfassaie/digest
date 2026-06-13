@@ -104,7 +104,7 @@ describe('SPEC-015: npm package tarball contents', () => {
     ]);
     const unexpected = files.filter(
       f => !f.startsWith('dist/') &&
-        !f.startsWith('docker/') &&
+        !f.startsWith('dist/docker/') &&
         !allowed.has(f)
     );
     expect(unexpected).toEqual([]);

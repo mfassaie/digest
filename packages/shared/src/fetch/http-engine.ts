@@ -75,23 +75,30 @@ export async function httpFetch(
 ): Promise<HttpFetchOutcome> {
   const fetchImpl = opts.fetchImpl ?? fetch;
   const maxRedirects = opts.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
-  const deadline = Date.now() + req.timeoutSeconds * 1000;
+  const attemptMs = req.timeoutSeconds * 1000;
+  const deadline = Date.now() + attemptMs;
   const attempts = (req.retries ?? 0) + 1;
   let lastReason = 'fetch failed';
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const result = await attemptFetch(req, fetchImpl, maxRedirects, deadline);
+    // Overall deadline is a hard ceiling: if the budget is exhausted
+    // before we start an attempt, report timeout immediately.
+    if (Date.now() >= deadline) return { outcome: 'timeout' };
+    // Each attempt gets its own signal so a slow first attempt cannot
+    // starve later retries. The overall deadline is still checked
+    // inside attemptFetch as a hard ceiling.
+    const signal = AbortSignal.timeout(attemptMs);
+    const result = await attemptFetch(
+      req, fetchImpl, maxRedirects, deadline, signal,
+    );
     if (result.kind === 'outcome') return result.outcome;
     lastReason = result.reason;
-    // Retries share the original budget (design §4.8): once the deadline
-    // has passed, a retryable failure is reported as the timeout it is.
-    if (Date.now() >= deadline) return { outcome: 'timeout' };
   }
   return { outcome: 'fetch-failed', reason: lastReason };
 }
 
 async function attemptFetch(
   req: HttpFetchRequest, fetchImpl: typeof fetch, maxRedirects: number,
-  deadline: number,
+  deadline: number, signal: AbortSignal,
 ): Promise<Attempt> {
   let originHost: string;
   try {
@@ -109,17 +116,25 @@ async function attemptFetch(
 
   let current = req.url;
   for (let hop = 0; hop <= maxRedirects; hop += 1) {
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) return done({ outcome: 'timeout' });
+    // Hard ceiling: the overall deadline trumps the per-attempt signal.
+    if (Date.now() >= deadline) return done({ outcome: 'timeout' });
     let res: Response;
     try {
       res = await fetchImpl(current, {
         redirect: 'manual',
-        signal: AbortSignal.timeout(remaining),
+        signal,
         headers,
       });
     } catch (err) {
-      if (isAbortLike(err) || Date.now() >= deadline) {
+      if (isAbortLike(err)) {
+        // Per-attempt signal fired: retryable unless the overall
+        // deadline has also passed, in which case it is a hard timeout.
+        if (Date.now() >= deadline) {
+          return done({ outcome: 'timeout' });
+        }
+        return { kind: 'retryable', reason: reasonOf(err) };
+      }
+      if (Date.now() >= deadline) {
         return done({ outcome: 'timeout' });
       }
       return { kind: 'retryable', reason: reasonOf(err) };
@@ -158,6 +173,9 @@ async function attemptFetch(
     try {
       bytes = new Uint8Array(await res.arrayBuffer());
     } catch (err) {
+      // An abort during body streaming means the attempt's time ran
+      // out (the signal cancelled the underlying socket). Treat as a
+      // hard timeout: retrying a half-consumed body is unsafe.
       if (isAbortLike(err) || Date.now() >= deadline) {
         return done({ outcome: 'timeout' });
       }

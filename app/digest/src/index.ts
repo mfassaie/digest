@@ -26,6 +26,14 @@ async function main(): Promise<void> {
   const deps = defaultDeps();
   const server = createServer(deps, getVersion());
   await server.connect(new StdioServerTransport());
+
+  const shutdown = async () => {
+    await deps.store.flush();
+    process.exit(0);
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
   logLine(
     'info',
     `digest ${getVersion()} ready (artefacts ${deps.store.paths.root})`,

@@ -463,4 +463,101 @@ describe('handleWriteSection', () => {
     expect(out.isError).toBe(true);
     expect(out.content[0].text).toContain('not found');
   });
+
+  it('propagates non-WriteSectionError exceptions as-is', async () => {
+    const d = deps();
+    // Sabotage the store so readDigest throws a generic Error.
+    d.store.readDigest = async () => {
+      throw new Error('disk on fire');
+    };
+    await expect(
+      handleWriteSection({
+        artefact_id: 'AAAAAAAAAAAAAAAAAAAAAA',
+        section: {
+          id: 'BBBBBBBBBBBBBBBBBBBBBB',
+          content: [{ type: 'paragraph', value: 'Hi.' }],
+        },
+      }, d),
+    ).rejects.toThrow('disk on fire');
+  });
+
+  it('accepts empty content array without error', async () => {
+    const d = deps();
+    const doc = await setupDocument(d);
+    const install = findByTitle(doc.document.sections, 'Install')!;
+
+    const out = await handleWriteSection({
+      artefact_id: doc.id,
+      section: {
+        id: install.id,
+        hash: install.hash,
+        content: [],
+      },
+    }, d);
+    expect(out.isError).toBeUndefined();
+
+    // The section should now have no content blocks.
+    const read = await handleReadSection({
+      artefact_id: doc.id, section_id: install.id,
+    }, d);
+    const readBody = JSON.parse(read.content[0].text) as {
+      sections: FullSection[];
+    };
+    // content is either undefined or empty after the write.
+    const content = readBody.sections[0].content;
+    expect(content === undefined || content.length === 0).toBe(true);
+  });
+
+  it('processes a deeply nested (3+ level) section tree', async () => {
+    const d = deps();
+    const doc = await setupDocument(d);
+    const install = findByTitle(doc.document.sections, 'Install')!;
+
+    // Write a 3-level deep tree under Install:
+    // Install -> Prerequisites -> System Requirements
+    const out = await handleWriteSection({
+      artefact_id: doc.id,
+      section: {
+        id: install.id,
+        hash: install.hash,
+        content: [{ type: 'paragraph', value: 'Install guide.' }],
+        children: [{
+          id: 'CCCCCCCCCCCCCCCCCCCCCC',
+          type: 'section',
+          title: 'Prerequisites',
+          content: [{ type: 'paragraph', value: 'Need these.' }],
+          children: [{
+            id: 'DDDDDDDDDDDDDDDDDDDDDD',
+            type: 'section',
+            title: 'System Requirements',
+            content: [{ type: 'paragraph', value: 'Linux or macOS.' }],
+          }],
+        }],
+      },
+    }, d);
+    expect(out.isError).toBeUndefined();
+
+    // Verify all three levels are readable.
+    const readDoc = await handleReadDocument({ resource: MD_URL }, d);
+    const docBody = JSON.parse(readDoc.content[0].text) as {
+      document: { sections: TocSection };
+    };
+    const prereqs = findByTitle(docBody.document.sections, 'Prerequisites');
+    expect(prereqs).toBeDefined();
+    const sysReq = findByTitle(
+      docBody.document.sections, 'System Requirements',
+    );
+    expect(sysReq).toBeDefined();
+
+    // Verify the deepest section has the written content.
+    const read = await handleReadSection({
+      artefact_id: doc.id, section_id: sysReq!.id,
+    }, d);
+    const readBody = JSON.parse(read.content[0].text) as {
+      sections: FullSection[];
+    };
+    expect(readBody.sections[0].content!.some(
+      (b) => b.value.includes('Linux or macOS.'),
+    )).toBe(true);
+  });
 });

@@ -108,6 +108,65 @@ describe('projectDocumentDigest', () => {
     expect(() => projectDocumentDigest(fileOnly, 'all', false))
       .toThrow('no document branch');
   });
+
+  it('preserves section meta fields in the projection', () => {
+    const d = documentDigest();
+    d.document!.sections.meta = { page_range: '1-3' };
+    d.document!.sections.children![0].meta = {
+      critic_rollup: { added: 2, removed: 1 },
+    };
+    const out = projectDocumentDigest(d, 'all', false);
+    const doc = out.document as {
+      sections: {
+        meta?: Record<string, unknown>;
+        children: { meta?: Record<string, unknown> }[];
+      };
+    };
+    expect(doc.sections.meta).toEqual({ page_range: '1-3' });
+    expect(doc.sections.children[0].meta).toEqual({
+      critic_rollup: { added: 2, removed: 1 },
+    });
+  });
+
+  it('stripContent recurses through 3+ level deep trees', () => {
+    const d = documentDigest();
+    // Add a grandchild section: Install -> Sub -> DeepSub.
+    d.document!.sections.children![0].children = [{
+      id: 'GGGGGGGGGGGGGGGGGGGGGG', type: 'section' as const,
+      depth: 2, index: 0, title: 'Sub',
+      hash: HASH,
+      created_at: STAMP,
+      content: [{
+        id: 'HHHHHHHHHHHHHHHHHHHHHH', index: 0,
+        type: 'paragraph' as const,
+        value: 'Sub content.', hash: HASH,
+        created_at: STAMP,
+      }],
+      children: [{
+        id: 'IIIIIIIIIIIIIIIIIIIIII', type: 'section' as const,
+        depth: 3, index: 0, title: 'DeepSub',
+        hash: HASH,
+        created_at: STAMP,
+        content: [{
+          id: 'JJJJJJJJJJJJJJJJJJJJJJ', index: 0,
+          type: 'paragraph' as const,
+          value: 'Deep content.', hash: HASH,
+          created_at: STAMP,
+        }],
+      }],
+    }];
+    const out = projectDocumentDigest(d, 'all', false);
+    const json = JSON.stringify(out);
+    // No content anywhere in the tree.
+    expect(json).not.toContain('"content"');
+    expect(json).not.toContain('Sub content.');
+    expect(json).not.toContain('Deep content.');
+    // But structural fields survive at every level.
+    expect(json).toContain('"Sub"');
+    expect(json).toContain('"DeepSub"');
+    expect(json).toContain('GGGGGGGGGGGGGGGGGGGGGG');
+    expect(json).toContain('IIIIIIIIIIIIIIIIIIIIII');
+  });
 });
 
 describe('text helpers', () => {
