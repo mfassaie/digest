@@ -1,5 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { planChunks, resolveChunkStrategy } from '../chunking/chunker.js';
 import { openDocLog } from '../jsonl-log.js';
+import type { DocumentSection } from '../md-engine/types.js';
 import type { ReadEngine } from '../read-engine.js';
 import { normaliseMime, provisionalMime, MIME_TO_EXT } from
   '../settings/mime.js';
@@ -36,6 +40,8 @@ export interface PipelineDeps {
   now?: () => Date;
 }
 
+export type ChunkMode = 'none' | 'standard';
+
 export type FetchFileResult =
   | { kind: 'digest'; digest: Digest; source: 'network' | 'cache' | 'file' }
   | { kind: 'redirect'; fromUrl: string; toUrl: string }
@@ -46,6 +52,54 @@ export type FetchFileResult =
 
 function stampOf(deps: PipelineDeps): string {
   return (deps.now?.() ?? new Date()).toISOString();
+}
+
+// Chunk a freshly written digest when chunk_mode is 'standard' (plan M8).
+// Resolves the per-MIME strategy from settings, plans the chunks, reads the
+// raw file, slices it, and writes each chunk via store.writeChunk. For
+// markdown with strategy 'sections', parses the content to get top-level
+// sections from the fold output. Returns the updated digest with chunks.
+async function applyChunking(
+  deps: PipelineDeps, digest: Digest,
+): Promise<Digest> {
+  const mime = digest.file.mime_type;
+  const strategy = resolveChunkStrategy(deps.settings, mime);
+  const rawPath = fileURLToPath(digest.file.uri);
+  const rawBytes = await readFile(rawPath);
+
+  let sections: DocumentSection[] | undefined;
+  if (strategy.strategy === 'sections') {
+    // Lazy import to avoid pulling in the remark pipeline for non-md
+    // files. The md-engine fold gives top-level sections with byte
+    // positions, which is exactly what the section chunker needs.
+    const { parseMarkdown } = await import('../md-engine/fold.js');
+    const root = parseMarkdown(rawBytes.toString('utf8'));
+    sections = root.children;
+  }
+
+  const descriptors = planChunks(rawBytes.byteLength, strategy, sections);
+  if (descriptors.length === 0) return digest;
+
+  let latest = digest;
+  for (const desc of descriptors) {
+    const chunkBytes = rawBytes.subarray(desc.byteStart, desc.byteEnd);
+    const ext = digest.file.name.includes('.')
+      ? `.${digest.file.name.split('.').pop()!}` : '';
+    const name = `chunk-${String(desc.index).padStart(4, '0')}${ext}`;
+    await deps.store.writeChunk(digest.id, {
+      index: desc.index,
+      name,
+      bytes: chunkBytes,
+      chunkMeta: desc.chunkMeta,
+    });
+    // Read the updated digest after the last chunk write to get the
+    // full chunks array. writeChunk updates digest.json each time.
+    if (desc.index === descriptors[descriptors.length - 1]!.index) {
+      const updated = await deps.store.readDigest(digest.id);
+      if (updated !== null) latest = updated;
+    }
+  }
+  return latest;
 }
 
 // readDigest throws on a corrupt record; the pipeline treats that the same
@@ -82,6 +136,7 @@ function fileNameForUrl(finalUrl: string, mime: string): string {
 
 export async function fetchFileArtefact(
   deps: PipelineDeps, rawUri: string,
+  chunkMode: ChunkMode = 'none',
 ): Promise<FetchFileResult> {
   const resource = classifyResource(rawUri);
   if (resource.kind === 'invalid') {
@@ -105,13 +160,19 @@ export async function fetchFileArtefact(
       log?.write({ event: 'error', reason });
       return { kind: 'error', reason };
     }
-    const digest = await deps.store.createDigest({
+    let digest = await deps.store.createDigest({
       originUri: resource.url,
       type: 'file',
       file: content,
       related: prev?.related,
     });
     log?.write({ event: 'stored', source: 'file', hash: digest.file.hash });
+    if (chunkMode === 'standard') {
+      digest = await applyChunking(deps, digest);
+      log?.write({
+        event: 'chunked', count: digest.file.chunks?.length ?? 0,
+      });
+    }
     return { kind: 'digest', digest, source: 'file' };
   }
 
@@ -140,7 +201,7 @@ export async function fetchFileArtefact(
     case 'fetched': {
       const mime = outcome.contentType === undefined
         ? provisional : normaliseMime(outcome.contentType);
-      const digest = await deps.store.createDigest({
+      let digest = await deps.store.createDigest({
         originUri: resource.url,
         type: 'file',
         file: {
@@ -158,6 +219,12 @@ export async function fetchFileArtefact(
       log?.write({
         event: 'stored', source: 'network', hash: digest.file.hash,
       });
+      if (chunkMode === 'standard') {
+        digest = await applyChunking(deps, digest);
+        log?.write({
+          event: 'chunked', count: digest.file.chunks?.length ?? 0,
+        });
+      }
       return { kind: 'digest', digest, source: 'network' };
     }
     case 'not-modified': {

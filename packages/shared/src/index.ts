@@ -13,6 +13,7 @@ export * from './store/store.js';
 export * from './fetch/http-engine.js';
 export * from './fetch/local-file.js';
 export * from './fetch/fetch-file.js';
+export * from './chunking/index.js';
 export * from './document/convert-md.js';
 export * from './document/read-document.js';
 // Namespaced: the flat names (DocumentSection, ContentBlock, §5.3 vocab)
