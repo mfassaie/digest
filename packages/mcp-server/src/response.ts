@@ -67,7 +67,8 @@ export function projectDocumentDigest(
     created_at: digest.created_at,
     ...(digest.updated_at === undefined
       ? {} : { updated_at: digest.updated_at }),
-    // Plumbed for M7's divergence check; false until then.
+    // M7 divergence: true when the source file was re-fetched with
+    // new content and the document has been locally edited (design 2.6).
     source_changed: sourceChanged,
     // File identity without location (§10.10): hash/mime/size, no uris.
     file: {

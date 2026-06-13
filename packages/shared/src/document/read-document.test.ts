@@ -173,3 +173,101 @@ describe('readDocumentArtefact by artefact id', () => {
     });
   });
 });
+
+describe('source-change divergence detection (M7)', () => {
+  it('reports sourceChanged false when source file hash matches',
+    async () => {
+      // Initial fetch and convert: hashes match by construction.
+      const out = await readDocumentArtefact(deps(mdServer()), MD_URL);
+      expect(out.kind).toBe('document');
+      if (out.kind !== 'document') return;
+      expect(out.sourceChanged).toBe(false);
+      // Second read should still report no change.
+      const second = await readDocumentArtefact(deps(), MD_URL);
+      expect(second.kind).toBe('document');
+      if (second.kind !== 'document') return;
+      expect(second.sourceChanged).toBe(false);
+    });
+
+  it('reports sourceChanged true when the source file has been re-fetched ' +
+    'with new content and the document was edited', async () => {
+    // Step 1: initial fetch and conversion.
+    const first = await readDocumentArtefact(deps(mdServer()), MD_URL);
+    if (first.kind !== 'document') throw new Error('expected document');
+    const docId = first.digest.id;
+
+    // Step 2: simulate the source file being re-fetched with new bytes.
+    const fileId = artefactId(MD_URL, 'file');
+    await store.updateDigest(fileId, {
+      bytes: '# Updated title\n\nNew content.\n',
+    });
+
+    // Step 3: simulate the document being locally edited (file.hash
+    // diverges from source_file_hash because the master md was changed).
+    const updatedMd = '# Edited by user\n\nCustom content.\n';
+    await store.updateDigest(docId, { bytes: updatedMd });
+
+    // Step 4: reading the document should detect the divergence.
+    const out = await readDocumentArtefact(deps(), MD_URL);
+    expect(out.kind).toBe('document');
+    if (out.kind !== 'document') return;
+    expect(out.sourceChanged).toBe(true);
+    // The original document should NOT be overwritten.
+    expect(out.digest.id).toBe(docId);
+  });
+
+  it('auto-regenerates document when source changed but doc is untouched',
+    async () => {
+      // Step 1: initial fetch and conversion.
+      const first = await readDocumentArtefact(deps(mdServer()), MD_URL);
+      if (first.kind !== 'document') throw new Error('expected document');
+      const originalSections = first.digest.document?.sections;
+
+      // Step 2: simulate the source file being re-fetched with new bytes.
+      // The document was NOT locally edited, so its file.hash still
+      // equals source_file_hash (the master md is a verbatim copy of the
+      // old source file).
+      const fileId = artefactId(MD_URL, 'file');
+      const newMd = '# New title\n\nDifferent content.\n\n## Setup\n\nDo it.\n';
+      await store.updateDigest(fileId, { bytes: newMd });
+
+      // Step 3: reading the document should auto-regenerate.
+      const out = await readDocumentArtefact(deps(), MD_URL);
+      expect(out.kind).toBe('document');
+      if (out.kind !== 'document') return;
+      expect(out.sourceChanged).toBe(false);
+      // The regenerated document should have the new title.
+      expect(out.digest.document?.name).toBe('New title');
+      // Section ids are re-minted on regeneration.
+      expect(out.digest.document?.sections.id).not.toBe(
+        originalSections?.id,
+      );
+    });
+
+  it('preserves edited document even after source file re-fetch',
+    async () => {
+      // This is the key safety property: a locally edited document is
+      // NEVER auto-overwritten by source changes.
+      const first = await readDocumentArtefact(deps(mdServer()), MD_URL);
+      if (first.kind !== 'document') throw new Error('expected document');
+      const docId = first.digest.id;
+
+      // Edit the document locally.
+      const edited = '# Edited\n\nUser content.\n';
+      await store.updateDigest(docId, { bytes: edited });
+
+      // Re-fetch source with different content.
+      const fileId = artefactId(MD_URL, 'file');
+      await store.updateDigest(fileId, { bytes: '# V2\n' });
+
+      // Document should not be overwritten.
+      const out = await readDocumentArtefact(deps(), MD_URL);
+      if (out.kind !== 'document') throw new Error('expected document');
+      expect(out.sourceChanged).toBe(true);
+      // The document's file hash is the edited content, not the new source.
+      const doc = await store.readDigest(docId);
+      expect(doc?.file.hash).not.toBe(
+        (await store.readDigest(fileId))?.file.hash,
+      );
+    });
+});
