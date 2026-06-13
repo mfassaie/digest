@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -267,5 +267,109 @@ describe('fetchFileArtefact over the filesystem', () => {
       (line) => (JSON.parse(line) as { event: string }).event,
     );
     expect(events).toEqual(['fetch_file', 'stored']);
+  });
+});
+
+describe('fetchFileArtefact with chunk_mode standard', () => {
+  it('chunks a markdown file by top-level sections', async () => {
+    const md = [
+      '# Introduction',
+      'Intro text.',
+      '',
+      '# Details',
+      'Detail text.',
+      '',
+      '# Conclusion',
+      'End.',
+    ].join('\n');
+    const d = deps(respond(md, {
+      'content-type': 'text/markdown; charset=utf-8',
+    }));
+    const out = await fetchFileArtefact(d, MD_URL, 'standard');
+    expect(out.kind).toBe('digest');
+    if (out.kind !== 'digest') return;
+    const chunks = out.digest.file.chunks;
+    expect(chunks).toBeDefined();
+    expect(chunks!.length).toBe(3);
+    expect(chunks![0]!.chunk_meta).toBe('Introduction');
+    expect(chunks![1]!.chunk_meta).toBe('Details');
+    expect(chunks![2]!.chunk_meta).toBe('Conclusion');
+    // Each chunk has a hash and uri.
+    for (const chunk of chunks!) {
+      expect(chunk.hash).toMatch(/^sha256:/);
+      expect(chunk.uri).toContain('file://');
+    }
+    // Chunk files exist on disk.
+    const chunksDir = d.store.paths.chunksDir(out.digest.id);
+    const files = await readdir(chunksDir);
+    expect(files.length).toBe(3);
+  });
+
+  it('chunks a binary file by byte ranges', async () => {
+    // Use a local file to bypass provisional MIME / browser-needed gating.
+    const binary = Buffer.alloc(300, 0xab);
+    const binPath = join(root, 'data.bin');
+    await writeFile(binPath, binary);
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      chunking: {
+        standard: {
+          ...DEFAULT_SETTINGS.chunking.standard,
+          '*/*': { strategy: 'bytes' as const, chunk_bytes: 100 },
+        },
+      },
+    };
+    const d = deps(
+      async () => { throw new Error('no network'); }, { settings },
+    );
+    const out = await fetchFileArtefact(d, binPath, 'standard');
+    expect(out.kind).toBe('digest');
+    if (out.kind !== 'digest') return;
+    const chunks = out.digest.file.chunks;
+    expect(chunks).toBeDefined();
+    expect(chunks!.length).toBe(3);
+    expect(chunks![0]!.chunk_meta).toBe('bytes 0-99');
+    expect(chunks![1]!.chunk_meta).toBe('bytes 100-199');
+    expect(chunks![2]!.chunk_meta).toBe('bytes 200-299');
+  });
+
+  it('chunks a local markdown file', async () => {
+    const path = join(root, 'chunked.md');
+    await writeFile(path, '# A\nfoo\n# B\nbar\n', 'utf8');
+    const d = deps(async () => { throw new Error('no network'); });
+    const out = await fetchFileArtefact(d, path, 'standard');
+    expect(out.kind).toBe('digest');
+    if (out.kind !== 'digest') return;
+    expect(out.digest.file.chunks!.length).toBe(2);
+    expect(out.digest.file.chunks![0]!.chunk_meta).toBe('A');
+    expect(out.digest.file.chunks![1]!.chunk_meta).toBe('B');
+  });
+
+  it('skips chunking when chunk_mode is none', async () => {
+    const d = deps(respond('# A\nfoo\n', {
+      'content-type': 'text/markdown',
+    }));
+    const out = await fetchFileArtefact(d, MD_URL, 'none');
+    expect(out.kind).toBe('digest');
+    if (out.kind !== 'digest') return;
+    expect(out.digest.file.chunks).toBeUndefined();
+  });
+
+  it('logs chunking events', async () => {
+    const path = join(root, 'log-chunk.md');
+    await writeFile(path, '# X\nhello\n', 'utf8');
+    const logsDir = join(root, 'logs');
+    const d = deps(
+      async () => { throw new Error('no network'); }, { logsDir },
+    );
+    const out = await fetchFileArtefact(d, path, 'standard');
+    if (out.kind !== 'digest') throw new Error('expected digest');
+    const log = await readFile(
+      join(logsDir, 'docs', out.digest.id, 'pipeline.jsonl'), 'utf8',
+    );
+    const events = log.trim().split('\n').map(
+      (line) => (JSON.parse(line) as { event: string }).event,
+    );
+    expect(events).toContain('chunked');
   });
 });

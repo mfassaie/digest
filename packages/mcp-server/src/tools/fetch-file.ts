@@ -18,8 +18,8 @@ export const fetchFileSchema = {
   ),
   chunk_mode: z.enum(['none', 'standard']).optional().default('none')
     .describe(
-      "'standard' splits large files into chunks (not yet available); " +
-      "default 'none'.",
+      "'standard' splits the file into chunks stored alongside the " +
+      "artefact; default 'none'.",
     ),
 };
 
@@ -38,14 +38,8 @@ export function browserNeededMessage(mime: string): string {
 export async function handleFetchFile(
   args: FetchFileArgs, deps: ServerDeps,
 ): Promise<TextResult> {
-  if ((args.chunk_mode ?? 'none') === 'standard') {
-    return text(formatError(
-      args.uri,
-      "chunk_mode 'standard' is not available yet (chunking lands in " +
-      "M8). Retry with chunk_mode 'none'.",
-    ), true);
-  }
-  const result = await fetchFileArtefact(deps, args.uri);
+  const chunkMode = args.chunk_mode ?? 'none';
+  const result = await fetchFileArtefact(deps, args.uri, chunkMode);
   switch (result.kind) {
     case 'digest':
       // The file Digest verbatim: the one response that carries file uris.
@@ -68,7 +62,9 @@ export function registerFetchFileTool(
     FETCH_FILE_TOOL,
     'Fetch a file (https url, file:// url or local path) into the local ' +
     'artefact store and return its file Digest: identity, content hash ' +
-    'and stored path. Accepts any file type.',
+    "and stored path. With chunk_mode 'standard', splits the file into " +
+    'chunks (sections for markdown, byte ranges otherwise). Accepts any ' +
+    'file type.',
     fetchFileSchema,
     (args) => handleFetchFile(args, deps),
   );

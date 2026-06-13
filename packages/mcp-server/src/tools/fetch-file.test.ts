@@ -55,13 +55,18 @@ describe('handleFetchFile', () => {
     expect(out.content[0].text).toContain('notes.md');
   });
 
-  it("rejects chunk_mode 'standard' cleanly until M8", async () => {
+  it("returns chunks when chunk_mode is 'standard'", async () => {
     const out = await handleFetchFile(
       { uri: MD_URL, chunk_mode: 'standard' }, deps(),
     );
-    expect(out.isError).toBe(true);
-    expect(out.content[0].text).toContain("chunk_mode 'standard'");
-    expect(out.content[0].text).toContain('M8');
+    expect(out.isError).toBeUndefined();
+    const digest = JSON.parse(out.content[0].text) as {
+      file: { chunks?: { index: number; chunk_meta: string }[] };
+    };
+    expect(digest.file.chunks).toBeDefined();
+    expect(digest.file.chunks!.length).toBeGreaterThan(0);
+    expect(digest.file.chunks![0]!.index).toBe(0);
+    expect(digest.file.chunks![0]!.chunk_meta).toBeTruthy();
   });
 
   it("treats chunk_mode 'none' as the no-op it is", async () => {
