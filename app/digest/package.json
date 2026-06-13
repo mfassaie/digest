@@ -56,12 +56,12 @@
     "@digest/docker": "workspace:*",
     "@digest/mcp-server": "workspace:*",
     "@digest/shared": "workspace:*",
-    "@types/node": "^25.5.0",
-    "@vitest/coverage-v8": "^4.1.2",
-    "esbuild": "^0.28.0",
+    "@types/node": "^25.9.3",
+    "@vitest/coverage-v8": "^4.1.8",
+    "esbuild": "^0.28.1",
     "mcp-testing-kit": "0.2.0",
     "tsx": "^4.19.2",
-    "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   }
 }
