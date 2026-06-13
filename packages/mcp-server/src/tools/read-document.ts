@@ -6,10 +6,9 @@ import {
   formatError, formatRedirect, jsonText, projectDocumentDigest, text,
   type ReadMode, type TextResult,
 } from '../response.js';
-import { browserNeededMessage } from './fetch-file.js';
 
-// The read_document tool (ADR-011 design §4): serve the document Digest —
-// section tree, summary, keywords — with no uris in the response. One
+// The read_document tool (ADR-011 design §4): serve the document Digest -
+// section tree, summary, keywords - with no uris in the response. One
 // module per tool (plan M4); server.ts only registers.
 
 export const READ_DOCUMENT_TOOL = 'read_document';
@@ -32,12 +31,12 @@ export interface ReadDocumentArgs {
   read_mode?: ReadMode;
 }
 
-// Format roadmap (design §4): v1 reads markdown only.
+// Format roadmap (design section 4): md and html supported. txt/json
+// after that, pdf later.
 function unsupportedMessage(name: string, mime: string): string {
-  return `read_document reads markdown (.md) sources only in this ` +
-    `version — '${name}' is ${mime}. Format roadmap: html lands in M9, ` +
-    'txt/json after that, pdf later. fetch_file can store the raw file ' +
-    'meanwhile.';
+  return `read_document supports markdown (.md) and html sources in this ` +
+    `version. '${name}' is ${mime}. Format roadmap: txt/json next, pdf ` +
+    'later. fetch_file can store the raw file meanwhile.';
 }
 
 export async function handleReadDocument(
@@ -56,10 +55,6 @@ export async function handleReadDocument(
       ), true);
     case 'redirect':
       return text(formatRedirect(result.fromUrl, result.toUrl));
-    case 'browser-needed':
-      return text(
-        formatError(args.resource, browserNeededMessage(result.mime)), true,
-      );
     case 'error':
       return text(formatError(args.resource, result.reason), true);
   }
@@ -72,7 +67,7 @@ export function registerReadDocumentTool(
     READ_DOCUMENT_TOOL,
     'Read a fetched document as its structured Digest: section tree ' +
     '(table of contents), summary and keywords. No file paths in the ' +
-    'response. Markdown sources only for now.',
+    'response. Supports markdown and html sources.',
     readDocumentSchema,
     (args) => handleReadDocument(args, deps),
   );

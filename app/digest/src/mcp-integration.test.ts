@@ -114,7 +114,7 @@ describe('MCP server over the protocol', () => {
     expect(body.id).toBe(artefactId(MD_URL, 'document'));
   });
 
-  it('read_document on a non-md source returns an isError result',
+  it('read_document on an unsupported source returns an isError result',
     async () => {
       const read = await callOnce(
         testDeps(), (c) => c.callTool('read_document', {
@@ -122,7 +122,8 @@ describe('MCP server over the protocol', () => {
         }),
       ) as { [x: string]: unknown };
       expect(read.isError).toBe(true);
-      expect(textOf(read)).toContain('markdown (.md) sources only');
+      expect(textOf(read)).toContain('application/pdf');
+      expect(textOf(read)).toContain('roadmap');
     });
 });
 

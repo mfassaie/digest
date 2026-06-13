@@ -30,7 +30,9 @@
     "vitest": "^4.1.2"
   },
   "dependencies": {
+    "defuddle": "^0.15.0",
     "http-cache-semantics": "4.2.0",
+    "linkedom": "^0.18.12",
     "remark-frontmatter": "5.0.0",
     "remark-gfm": "4.0.1",
     "remark-parse": "11.0.0",

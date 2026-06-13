@@ -71,14 +71,13 @@ describe('handleFetchFile', () => {
     expect(out.isError).toBeUndefined();
   });
 
-  it('names M9 when the rule needs the browser', async () => {
+  it('soft-errors when the rule needs Docker but none is wired', async () => {
     const out = await handleFetchFile(
       { uri: 'https://ex.com/page' }, deps(),
     );
     expect(out.isError).toBe(true);
     expect(out.content[0].text).toContain('stealth browser');
-    expect(out.content[0].text)
-      .toContain('html/container support lands in M9');
+    expect(out.content[0].text).toContain('Docker');
   });
 
   it('reports cross-host redirects without isError', async () => {

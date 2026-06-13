@@ -4,21 +4,20 @@ import type { ReadEngine } from '../read-engine.js';
 import { normaliseMime, provisionalMime, MIME_TO_EXT } from
   '../settings/mime.js';
 import { resolveRule } from '../settings/resolve.js';
-import type { Settings } from '../settings/schema.js';
+import type { Settings, TypeRule } from '../settings/schema.js';
 import { artefactId } from '../store/ids.js';
 import type { Digest } from '../store/record.js';
 import type { ArtefactStore } from '../store/store.js';
+import type {
+  ContainerTransport, ContainerFetchResponse, PipelineInstruction,
+  DockerUnavailableError,
+} from '../types.js';
 import { httpFetch } from './http-engine.js';
 import { classifyResource, readLocalFile } from './local-file.js';
 
-// The fetch_file pipeline, v1 (plan M4, ADR-011 §2.3 step 1): resolve the
-// provisional rule (M1), retrieve via the LOCAL http engine or a local
-// file read, write the file Digest (M2) and return it. The container
-// runtime is not wired until M9: rules whose retrieval is plain 'http'
-// execute locally even when their runtime says 'container' (raw bytes over
-// plain http are runtime-indifferent, so this is faithful, not a
-// fallback); rules needing the stealth browser cannot be satisfied and
-// are reported as such.
+// The fetch_file pipeline (plan M4 + M9, ADR-010/011): resolve the
+// provisional rule, retrieve via local http engine OR dispatch to the
+// container when the rule requires it, write the file Digest and return it.
 
 // Injected dependencies, shared by every pipeline entry point (the
 // ServerDeps pattern): mcp-server passes its deps straight through.
@@ -34,14 +33,14 @@ export interface PipelineDeps {
   // <logsDir>/docs/{artefact-id}/pipeline.jsonl (design §3).
   logsDir?: string;
   now?: () => Date;
+  // M9: container transport. When absent, container-needing rules
+  // soft-error. Wired in production by app/digest via @digest/docker.
+  containerTransport?: ContainerTransport;
 }
 
 export type FetchFileResult =
   | { kind: 'digest'; digest: Digest; source: 'network' | 'cache' | 'file' }
   | { kind: 'redirect'; fromUrl: string; toUrl: string }
-  // The resolved rule needs the stealth browser — container support lands
-  // in M9.
-  | { kind: 'browser-needed'; mime: string }
   | { kind: 'error'; reason: string };
 
 function stampOf(deps: PipelineDeps): string {
@@ -78,6 +77,40 @@ function fileNameForUrl(finalUrl: string, mime: string): string {
   if (name !== '') return name;
   const ext = MIME_TO_EXT[mime];
   return ext === undefined ? 'download' : `download.${ext}`;
+}
+
+// Statuses that commonly signal bot protection (design section 4.6).
+const BLOCK_STATUSES = new Set([402, 403, 429, 503]);
+
+// Build the instruction the container expects from a resolved rule.
+function instructionFromRule(rule: TypeRule): PipelineInstruction {
+  return {
+    retrieval: rule.retrieval,
+    parser: rule.parser,
+    escalate: rule.escalate,
+  };
+}
+
+// Docker availability check (design section 4.5): returns true when the
+// transport is present and ensure() succeeds. Catches DockerUnavailable
+// and returns false so local-only pipelines degrade gracefully.
+async function ensureDocker(
+  transport: ContainerTransport | undefined,
+): Promise<{ baseUrl: string } | null> {
+  if (transport === undefined) return null;
+  try {
+    return await transport.ensure();
+  } catch (err) {
+    if ((err as { name?: string }).name === 'DockerUnavailableError') {
+      return null;
+    }
+    throw err;
+  }
+}
+
+// Store the file from a container response's content field.
+function containerContentBytes(content: { raw: string }): Uint8Array {
+  return Uint8Array.from(Buffer.from(content.raw, 'base64'));
 }
 
 export async function fetchFileArtefact(
@@ -117,10 +150,10 @@ export async function fetchFileArtefact(
 
   const provisional = provisionalMime(resource.url);
   const rule = resolveRule(deps.settings, provisional);
-  if (rule.retrieval === 'browser') {
-    log?.write({ event: 'browser-needed', mime: provisional });
-    return { kind: 'browser-needed', mime: provisional };
-  }
+  const deadlineMs = deps.settings.fetch.timeout_seconds * 1000;
+  const deadline = Date.now() + deadlineMs;
+  const remaining = (): number =>
+    Math.max(0, Math.floor((deadline - Date.now()) / 1000));
 
   const entry = prev === null
     ? null : await deps.store.readIndexEntry(id);
@@ -128,6 +161,17 @@ export async function fetchFileArtefact(
     && (entry.origin_etag !== undefined || entry.last_modified !== undefined)
     ? { etag: entry.origin_etag, lastModified: entry.last_modified }
     : undefined;
+
+  // M9: container dispatch. When the rule needs the browser (which
+  // structurally implies container), or the runtime is container and a
+  // transport is available, dispatch to the container.
+  if (rule.retrieval === 'browser') {
+    return containerDispatch(
+      deps, resource.url, rule, validators, prev, id, log, remaining,
+    );
+  }
+
+  // Local HTTP fetch path: retrieval is 'http'.
   const outcome = await httpFetch({
     url: resource.url,
     timeoutSeconds: deps.settings.fetch.timeout_seconds,
@@ -140,6 +184,21 @@ export async function fetchFileArtefact(
     case 'fetched': {
       const mime = outcome.contentType === undefined
         ? provisional : normaliseMime(outcome.contentType);
+      // M9: authoritative re-dispatch. If the authoritative type resolves
+      // to a rule needing the browser and we fetched locally, re-dispatch
+      // once to the container within the remaining budget (design section
+      // 4.3). Single re-dispatch invariant: we never chain beyond one.
+      const authRule = resolveRule(deps.settings, mime);
+      if (authRule.retrieval === 'browser' && remaining() > 0) {
+        const reResult = await containerDispatch(
+          deps, resource.url, authRule, undefined, prev, id, log, remaining,
+        );
+        if (reResult.kind !== 'error') {
+          log?.write({ event: 're-dispatch', from: 'local', to: 'container' });
+          return reResult;
+        }
+        // Re-dispatch failed (Docker unavailable): accept local result.
+      }
       const digest = await deps.store.createDigest({
         originUri: resource.url,
         type: 'file',
@@ -176,8 +235,29 @@ export async function fetchFileArtefact(
       return {
         kind: 'redirect', fromUrl: outcome.fromUrl, toUrl: outcome.toUrl,
       };
-    case 'http-error':
+    case 'http-error': {
+      // M9: bot-block escalation (design section 4.6). If the rule allows
+      // escalation and Docker is available, re-dispatch to the container
+      // with browser retrieval.
+      if (rule.escalate === 'browser'
+        && BLOCK_STATUSES.has(outcome.status) && remaining() > 0) {
+        const escalatedRule: TypeRule = {
+          ...rule, retrieval: 'browser', runtime: 'container',
+        };
+        const escResult = await containerDispatch(
+          deps, resource.url, escalatedRule, undefined, prev, id, log,
+          remaining,
+        );
+        if (escResult.kind !== 'error') {
+          log?.write({
+            event: 'escalation', from: 'local', status: outcome.status,
+          });
+          return escResult;
+        }
+        // Escalation failed (Docker unavailable): return original error.
+      }
       return { kind: 'error', reason: `HTTP ${outcome.status}` };
+    }
     case 'timeout':
       return {
         kind: 'error',
@@ -186,5 +266,102 @@ export async function fetchFileArtefact(
       };
     case 'fetch-failed':
       return { kind: 'error', reason: outcome.reason };
+  }
+}
+
+// Container dispatch: ensure the container, POST /fetch with the
+// instruction, and store the result. Returns an error result when Docker
+// is unavailable (soft error per design section 4.5).
+async function containerDispatch(
+  deps: PipelineDeps,
+  url: string,
+  rule: TypeRule,
+  validators: { etag?: string; lastModified?: string } | undefined,
+  prev: Digest | null,
+  id: string,
+  log: ReturnType<typeof openDocLog> | undefined,
+  remainingSeconds: () => number,
+): Promise<FetchFileResult> {
+  const docker = await ensureDocker(deps.containerTransport);
+  if (docker === null) {
+    const msg = 'this fetch needs the stealth browser but Docker is not ' +
+      'available. Run `npx digest setup` to build the local Docker image.';
+    log?.write({ event: 'docker-unavailable' });
+    return { kind: 'error', reason: msg };
+  }
+
+  const timeoutSec = Math.max(1, remainingSeconds());
+  const response = await deps.containerTransport!.fetch(docker.baseUrl, {
+    url,
+    timeoutSeconds: timeoutSec,
+    rawOnly: false,
+    validators,
+    instruction: instructionFromRule(rule),
+  });
+  log?.write({ event: 'container', outcome: response.outcome });
+
+  return processContainerResponse(
+    deps, response, url, prev, id,
+  );
+}
+
+function processContainerResponse(
+  deps: PipelineDeps,
+  response: ContainerFetchResponse,
+  url: string,
+  prev: Digest | null,
+  id: string,
+): Promise<FetchFileResult> | FetchFileResult {
+  switch (response.outcome) {
+    case 'fetched': {
+      const mime = normaliseMime(response.contentType);
+      const bytes = containerContentBytes(response.content);
+      return (async () => {
+        const digest = await deps.store.createDigest({
+          originUri: url,
+          type: 'file',
+          file: {
+            name: fileNameForUrl(response.finalUrl, mime),
+            mimeType: mime,
+            bytes,
+          },
+          related: prev?.related,
+          index: {
+            origin_etag: response.etag,
+            last_modified: response.lastModified,
+            last_fetched: stampOf(deps),
+          },
+        });
+        return { kind: 'digest' as const, digest, source: 'network' as const };
+      })();
+    }
+    case 'not-modified':
+      if (prev === null) {
+        return {
+          kind: 'error',
+          reason: 'origin replied 304 but no stored artefact exists',
+        };
+      }
+      return (async () => {
+        const digest = await deps.store.updateDigest(id, {
+          index: { last_fetched: stampOf(deps) },
+        });
+        return { kind: 'digest' as const, digest, source: 'cache' as const };
+      })();
+    case 'cross-host-redirect':
+      return {
+        kind: 'redirect',
+        fromUrl: response.fromUrl, toUrl: response.toUrl,
+      };
+    case 'http-error':
+      return { kind: 'error', reason: `HTTP ${response.status}` };
+    case 'timeout':
+      return {
+        kind: 'error',
+        reason: 'timed out after ' +
+          `${deps.settings.fetch.timeout_seconds}s`,
+      };
+    case 'fetch-failed':
+      return { kind: 'error', reason: response.reason };
   }
 }

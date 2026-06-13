@@ -1,3 +1,4 @@
+import type { PipelineInstruction } from '@digest/shared';
 import type { BrowserEngine, RenderResult } from './engine.js';
 import {
   classifyContentType, getFileExtension, convertHtml,
@@ -12,6 +13,8 @@ export interface FetchInput {
   timeoutSeconds: number;
   rawOnly: boolean;
   validators?: { etag?: string; lastModified?: string };
+  // M9: instruction-driven protocol. Absent = legacy behaviour.
+  instruction?: PipelineInstruction;
 }
 
 // The container is artefact-root-agnostic: it returns the fetched + converted
@@ -102,6 +105,10 @@ async function preflight(
 // Orchestrates one fetch: pre-flight (redirects/validators), content-type
 // branch, render+convert HTML or return raw bytes. Returns content; the host
 // writes it into the session's artefact root.
+//
+// M9: when an instruction is present, the retrieval/parser/escalate fields
+// drive the branching instead of the hard-coded HTML detection. Absent
+// instruction = legacy behaviour (backwards compatible).
 export async function orchestrateFetch(
   engine: BrowserEngine,
   input: FetchInput,
@@ -109,6 +116,39 @@ export async function orchestrateFetch(
   const timeoutMs = input.timeoutSeconds * 1000;
   const deadline = Date.now() + timeoutMs;
   const remaining = (): number => Math.max(0, deadline - Date.now());
+  const inst = input.instruction;
+
+  // When instruction says retrieval: 'browser', skip preflight and go
+  // straight to a stealth render.
+  if (inst?.retrieval === 'browser') {
+    const rendered = await safeRender(engine, input.url, remaining());
+    if (!rendered || rendered.status >= 400) {
+      return rendered
+        ? { outcome: 'http-error', status: rendered.status }
+        : { outcome: 'fetch-failed', reason: 'browser render failed' };
+    }
+    const contentType = rendered.contentType || 'text/html';
+    const category = classifyContentType(contentType);
+    if (inst.parser === 'defuddle' && category === 'html') {
+      return convertOutcome({
+        finalUrl: rendered.finalUrl,
+        contentType,
+        status: rendered.status,
+        etag: rendered.headers['etag'],
+        lastModified: rendered.headers['last-modified'],
+        html: rendered.html,
+      });
+    }
+    // Non-defuddle or non-html: return raw rendered HTML bytes.
+    return rawOutcome({
+      finalUrl: rendered.finalUrl,
+      contentType,
+      status: rendered.status,
+      etag: rendered.headers['etag'],
+      lastModified: rendered.headers['last-modified'],
+      body: Buffer.from(rendered.html, 'utf8'),
+    });
+  }
 
   let pre: Preflight;
   try {
@@ -128,13 +168,13 @@ export async function orchestrateFetch(
     };
   }
 
-  // The plain pre-flight was rejected with a status that commonly signals
-  // bot protection (e.g. Stack Overflow returns 402). The pre-flight uses a
-  // plain HTTP client that lacks CloakBrowser's fingerprint, so escalate to
-  // a full stealth navigation, which may pass where the plain request did
-  // not. Skipped for raw_only (that explicitly wants the unrendered bytes).
+  // Bot-block escalation. With an instruction: gated by escalate field.
+  // Legacy (no instruction): gated by !rawOnly, same as before.
   if (pre.kind === 'http-error') {
-    if (!input.rawOnly && BLOCK_STATUSES.has(pre.status ?? 0)) {
+    const shouldEscalate = inst
+      ? inst.escalate === 'browser'
+      : !input.rawOnly;
+    if (shouldEscalate && BLOCK_STATUSES.has(pre.status ?? 0)) {
       const viaRender = await renderFetch(engine, input.url, remaining());
       if (viaRender) return viaRender;
     }
@@ -145,7 +185,30 @@ export async function orchestrateFetch(
   const contentType = pre.contentType ?? '';
   const category = classifyContentType(contentType);
 
-  // Non-HTML, or caller asked for raw only: return the body bytes.
+  // Instruction-driven parser selection (M9).
+  if (inst) {
+    if (inst.parser === 'defuddle' && category === 'html') {
+      const rendered = await safeRender(engine, finalUrl, remaining());
+      const html = rendered?.html
+        ?? (pre.body ? pre.body.toString('utf8') : '');
+      return convertOutcome({
+        finalUrl,
+        contentType,
+        status: rendered?.status || pre.status || 200,
+        etag: rendered?.headers['etag'] ?? pre.etag,
+        lastModified: rendered?.headers['last-modified'] ?? pre.lastModified,
+        html,
+      });
+    }
+    // parser raw or passthrough, or defuddle on non-html: return raw bytes.
+    return rawOutcome({
+      finalUrl, contentType, status: pre.status ?? 200,
+      etag: pre.etag, lastModified: pre.lastModified,
+      body: pre.body ?? Buffer.alloc(0),
+    });
+  }
+
+  // Legacy path (no instruction): original hard-coded HTML branch.
   if (category !== 'html' || input.rawOnly) {
     return rawOutcome({
       finalUrl, contentType, status: pre.status ?? 200,
@@ -154,9 +217,6 @@ export async function orchestrateFetch(
     });
   }
 
-  // HTML: render (JS executes) then convert. Fall back to the pre-flight
-  // body if rendering fails or runs out of time. Prefer the render
-  // response's validators (it is the authoritative resource response).
   const rendered = await safeRender(engine, finalUrl, remaining());
   const html = rendered?.html ?? (pre.body ? pre.body.toString('utf8') : '');
   return convertOutcome({

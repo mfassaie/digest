@@ -8,24 +8,29 @@ import { provisionalMime } from '../settings/mime.js';
 import {
   convertMarkdownFile, isMarkdownSource, isMarkdownUri,
 } from './convert-md.js';
+import { convertHtmlFile, isHtmlSource, isHtmlUri } from './convert-html.js';
 
-// read_document resolution (plan M4, design §4): resource is a uri or an
-// artefact id, disambiguated by shape (22-char base64url id vs anything
-// else). A file-type id hops its converted_to relation. Conversion happens
-// on demand for markdown sources; everything else is reported as
-// unsupported until its adapter lands (format roadmap).
+// read_document resolution (plan M4 + M9, design §4): resource is a uri
+// or an artefact id, disambiguated by shape (22-char base64url id vs
+// anything else). A file-type id hops its converted_to relation.
+// Conversion happens on demand for markdown and HTML sources; everything
+// else is reported as unsupported until its adapter lands (format roadmap).
 
 export type ReadDocumentResult =
   | { kind: 'document'; digest: Digest; sourceChanged: boolean }
   | { kind: 'unsupported'; name: string; mime: string }
   | { kind: 'redirect'; fromUrl: string; toUrl: string }
-  | { kind: 'browser-needed'; mime: string }
   | { kind: 'error'; reason: string };
 
 // source_changed is plumbed through to the response but stays false until
 // M7 wires the source_file_hash divergence check (design §2.6).
 function documentResult(digest: Digest): ReadDocumentResult {
   return { kind: 'document', digest, sourceChanged: false };
+}
+
+// Check whether a URI's provisional type is convertible (md or html).
+function isConvertibleUri(uri: string): boolean {
+  return isMarkdownUri(uri) || isHtmlUri(uri);
 }
 
 export async function readDocumentArtefact(
@@ -43,10 +48,9 @@ export async function readDocumentArtefact(
 
   let fileDigest = await deps.store.readDigest(artefactId(uri, 'file'));
   if (fileDigest === null) {
-    // Absent → fetch_file internally (design §2.3). Non-md uris are
-    // refused on the provisional type before any retrieval: even a
-    // successful fetch would end unsupported in v1.
-    if (!isMarkdownUri(uri)) {
+    // Absent: fetch_file internally (design section 2.3). Non-convertible
+    // uris are refused on the provisional type before any retrieval.
+    if (!isConvertibleUri(uri)) {
       return { kind: 'unsupported', name: uri, mime: provisionalMime(uri) };
     }
     const fetched: FetchFileResult = await fetchFileArtefact(deps, uri);
@@ -75,18 +79,23 @@ async function readById(
 async function serveFromFile(
   deps: PipelineDeps, fileDigest: Digest,
 ): Promise<ReadDocumentResult> {
-  if (!isMarkdownSource(fileDigest.file)) {
-    return {
-      kind: 'unsupported',
-      name: fileDigest.file.name,
-      mime: fileDigest.file.mime_type,
-    };
-  }
   // Never regenerate an existing document on read: section ids are sticky
   // and refresh policy is M7's concern.
   const existing = await deps.store.readDigest(
     artefactId(fileDigest.origin_uri, 'document'),
   );
   if (existing !== null) return documentResult(existing);
-  return documentResult(await convertMarkdownFile(deps, fileDigest));
+
+  // M9: HTML sources are converted via defuddle + linkedom -> md -> fold.
+  if (isHtmlSource(fileDigest.file)) {
+    return documentResult(await convertHtmlFile(deps, fileDigest));
+  }
+  if (isMarkdownSource(fileDigest.file)) {
+    return documentResult(await convertMarkdownFile(deps, fileDigest));
+  }
+  return {
+    kind: 'unsupported',
+    name: fileDigest.file.name,
+    mime: fileDigest.file.mime_type,
+  };
 }

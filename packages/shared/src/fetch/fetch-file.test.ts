@@ -3,9 +3,12 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { DEFAULT_SETTINGS } from '../settings/schema.js';
+import { DEFAULT_SETTINGS, type TypeRule } from '../settings/schema.js';
 import { artefactId } from '../store/ids.js';
 import { createArtefactStore } from '../store/store.js';
+import type {
+  ContainerTransport, ContainerFetchRequest, ContainerFetchResponse,
+} from '../types.js';
 import { fetchFileArtefact, type PipelineDeps } from './fetch-file.js';
 
 let root: string;
@@ -71,7 +74,7 @@ describe('fetchFileArtefact over http', () => {
       expect(out.kind).toBe('digest');
     });
 
-  it('reports rules needing the stealth browser as browser-needed',
+  it('soft-errors when the browser rule is needed but no container transport',
     async () => {
       const refuse: typeof fetch = async () => {
         throw new Error('must not fetch');
@@ -79,9 +82,11 @@ describe('fetchFileArtefact over http', () => {
       const out = await fetchFileArtefact(
         deps(refuse), 'https://ex.com/page',
       );
-      // Extensionless → provisional text/html → default rule wants the
-      // browser, which only exists in the container (lands in M9).
-      expect(out).toEqual({ kind: 'browser-needed', mime: 'text/html' });
+      // Extensionless -> provisional text/html -> default rule wants the
+      // browser. Without a containerTransport wired, this is a soft error.
+      expect(out.kind).toBe('error');
+      expect((out as { reason: string }).reason)
+        .toContain('stealth browser');
     });
 
   it('sends stored validators and serves from store on 304', async () => {
@@ -268,4 +273,171 @@ describe('fetchFileArtefact over the filesystem', () => {
     );
     expect(events).toEqual(['fetch_file', 'stored']);
   });
+});
+
+// Fake container transport for dispatch tests. Records the requests
+// and returns scripted responses.
+function fakeTransport(
+  response: ContainerFetchResponse,
+): ContainerTransport & { requests: ContainerFetchRequest[] } {
+  const requests: ContainerFetchRequest[] = [];
+  return {
+    requests,
+    async ensure() { return { baseUrl: 'http://fake:1234' }; },
+    async fetch(_base: string, req: ContainerFetchRequest) {
+      requests.push(req);
+      return response;
+    },
+  };
+}
+
+// A transport whose ensure() throws DockerUnavailableError.
+function unavailableTransport(): ContainerTransport {
+  return {
+    async ensure() {
+      const err = new Error('Docker not running');
+      err.name = 'DockerUnavailableError';
+      throw err;
+    },
+    async fetch() { throw new Error('should not be called'); },
+  };
+}
+
+describe('fetchFileArtefact container dispatch (M9)', () => {
+  it('dispatches browser-needing rules to the container transport',
+    async () => {
+      const transport = fakeTransport({
+        outcome: 'fetched',
+        status: 200,
+        finalUrl: 'https://ex.com/page',
+        contentType: 'text/html',
+        category: 'html',
+        meta: { title: 'Test' },
+        sections: [],
+        content: {
+          ext: 'html',
+          raw: Buffer.from('<html>hi</html>').toString('base64'),
+        },
+      });
+      const d = deps(async () => { throw new Error('no local'); }, {
+        containerTransport: transport,
+      });
+      const out = await fetchFileArtefact(d, 'https://ex.com/page');
+      expect(out.kind).toBe('digest');
+      if (out.kind !== 'digest') return;
+      expect(out.digest.file.mime_type).toBe('text/html');
+      expect(transport.requests).toHaveLength(1);
+      expect(transport.requests[0].instruction).toEqual({
+        retrieval: 'browser',
+        parser: 'defuddle',
+        escalate: 'browser',
+      });
+    });
+
+  it('soft-errors when Docker is unavailable for browser rules', async () => {
+    const out = await fetchFileArtefact(deps(
+      async () => { throw new Error('no local'); },
+      { containerTransport: unavailableTransport() },
+    ), 'https://ex.com/page');
+    expect(out.kind).toBe('error');
+    expect((out as { reason: string }).reason).toContain('Docker');
+  });
+
+  it('escalates a bot-block status to the container', async () => {
+    const transport = fakeTransport({
+      outcome: 'fetched',
+      status: 200,
+      finalUrl: 'https://ex.com/guide.md',
+      contentType: 'text/markdown',
+      category: 'text',
+      meta: {},
+      sections: [],
+      content: {
+        ext: 'md',
+        raw: Buffer.from('# Guide').toString('base64'),
+      },
+    });
+    // The local HTTP fetch returns 403. With escalate: 'browser' on the
+    // default */* rule, the pipeline should re-dispatch to the container.
+    const out = await fetchFileArtefact(deps(
+      respond('', {}, 403),
+      { containerTransport: transport },
+    ), MD_URL);
+    expect(out.kind).toBe('digest');
+    expect(transport.requests).toHaveLength(1);
+    expect(transport.requests[0].instruction?.retrieval).toBe('browser');
+  });
+
+  it('does not escalate when escalate is none', async () => {
+    const transport = fakeTransport({
+      outcome: 'fetched', status: 200,
+      finalUrl: MD_URL, contentType: 'text/markdown',
+      category: 'text', meta: {}, sections: [],
+      content: { ext: 'md', raw: Buffer.from('x').toString('base64') },
+    });
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      types: {
+        ...DEFAULT_SETTINGS.types,
+        '*/*': {
+          retrieval: 'http', parser: 'raw',
+          runtime: 'container', escalate: 'none',
+        } as TypeRule,
+      },
+    };
+    const out = await fetchFileArtefact(deps(
+      respond('', {}, 403),
+      { settings, containerTransport: transport },
+    ), MD_URL);
+    // No escalation: the original 403 is returned as an error.
+    expect(out.kind).toBe('error');
+    expect((out as { reason: string }).reason).toBe('HTTP 403');
+    expect(transport.requests).toHaveLength(0);
+  });
+
+  it('falls back to local result when escalation Docker is unavailable',
+    async () => {
+      const out = await fetchFileArtefact(deps(
+        respond('', {}, 429),
+        { containerTransport: unavailableTransport() },
+      ), MD_URL);
+      // Docker unavailable -> returns the original HTTP error.
+      expect(out.kind).toBe('error');
+      expect((out as { reason: string }).reason).toBe('HTTP 429');
+    });
+
+  it('re-dispatches to container on authoritative type mismatch',
+    async () => {
+      // The provisional type for .md is text/markdown (local runtime).
+      // But the server replies with text/html, whose authoritative rule
+      // needs browser retrieval -> re-dispatch to container.
+      const transport = fakeTransport({
+        outcome: 'fetched', status: 200,
+        finalUrl: MD_URL, contentType: 'text/html',
+        category: 'html', meta: { title: 'Page' }, sections: [],
+        content: {
+          ext: 'html',
+          raw: Buffer.from('<h1>Hi</h1>').toString('base64'),
+        },
+      });
+      const out = await fetchFileArtefact(deps(
+        respond('<h1>Hi</h1>', { 'content-type': 'text/html' }),
+        { containerTransport: transport },
+      ), MD_URL);
+      expect(out.kind).toBe('digest');
+      expect(transport.requests).toHaveLength(1);
+    });
+
+  it('accepts the local result when re-dispatch Docker is unavailable',
+    async () => {
+      // Same mismatch scenario but Docker unavailable -> accepts local.
+      const out = await fetchFileArtefact(deps(
+        respond('<h1>Hi</h1>', { 'content-type': 'text/html' }),
+        { containerTransport: unavailableTransport() },
+      ), MD_URL);
+      expect(out.kind).toBe('digest');
+      if (out.kind !== 'digest') return;
+      // Stored with the authoritative mime from the response.
+      expect(out.digest.file.mime_type).toBe('text/html');
+    });
 });

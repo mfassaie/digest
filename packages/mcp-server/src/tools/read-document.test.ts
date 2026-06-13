@@ -118,17 +118,15 @@ describe('handleReadDocument', () => {
       expect(sections.document.keywords).toBeUndefined();
     });
 
-  it('refuses non-md sources with a clean error naming the roadmap',
+  it('refuses unsupported sources with a clean error naming the roadmap',
     async () => {
       const out = await handleReadDocument(
         { resource: 'https://ex.com/report.pdf' }, deps(),
       );
       expect(out.isError).toBe(true);
       const message = out.content[0].text;
-      expect(message).toContain('markdown (.md) sources only');
       expect(message).toContain('application/pdf');
       expect(message).toContain('roadmap');
-      expect(message).toContain('html lands in M9');
     });
 
   it('errors on an unknown artefact id', async () => {
@@ -150,25 +148,26 @@ describe('handleReadDocument', () => {
     expect(out.content[0].text).toContain('Redirect detected');
   });
 
-  it('names M9 when custom rules send md to the browser', async () => {
-    const settings = {
-      ...DEFAULT_SETTINGS,
-      types: {
-        ...DEFAULT_SETTINGS.types,
-        'text/markdown': {
-          retrieval: 'browser', parser: 'raw',
-          runtime: 'container', escalate: 'browser',
-        } as const,
-      },
-    };
-    const out = await handleReadDocument({ resource: MD_URL }, {
-      store: createArtefactStore(root), settings,
-      fetchImpl: async () => { throw new Error('no network'); },
+  it('soft-errors when custom rules send md to the browser but no Docker',
+    async () => {
+      const settings = {
+        ...DEFAULT_SETTINGS,
+        types: {
+          ...DEFAULT_SETTINGS.types,
+          'text/markdown': {
+            retrieval: 'browser', parser: 'raw',
+            runtime: 'container', escalate: 'browser',
+          } as const,
+        },
+      };
+      const out = await handleReadDocument({ resource: MD_URL }, {
+        store: createArtefactStore(root), settings,
+        fetchImpl: async () => { throw new Error('no network'); },
+      });
+      expect(out.isError).toBe(true);
+      expect(out.content[0].text).toContain('stealth browser');
+      expect(out.content[0].text).toContain('Docker');
     });
-    expect(out.isError).toBe(true);
-    expect(out.content[0].text)
-      .toContain('html/container support lands in M9');
-  });
 
   it('maps pipeline errors to isError results', async () => {
     const failing: typeof fetch = async () => {
