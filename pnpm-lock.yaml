@@ -204,8 +204,8 @@ importers:
         specifier: ^0.18.12
         version: 0.18.12
       mdream:
-        specifier: ^0.15.3
-        version: 0.15.3
+        specifier: ^1.4.0
+        version: 1.4.0
       rehype-parse:
         specifier: ^9.0.1
         version: 9.0.1
@@ -457,6 +457,82 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
+  '@mdream/rust-android-arm-eabi@1.4.0':
+    resolution: {integrity: sha512-07VHKGXtK5F2Q16zpTAvwD44M4krDi5jmKZdN2qFzQKaqLTx5vLC3VITYvQ+qnCCrbSYIBvhJQcBEml2oMK6nw==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [arm]
+    os: [android]
+
+  '@mdream/rust-android-arm64@1.4.0':
+    resolution: {integrity: sha512-N2Cj9mTovcRxgVGpv1d479iJRIm7WtCmCxgRC2L7BBvqqIFc67FHFimVN513Ks8x7c7avWoDvXDw7ipCC9mJjQ==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [arm64]
+    os: [android]
+
+  '@mdream/rust-darwin-arm64@1.4.0':
+    resolution: {integrity: sha512-nMhxfmLBJZ3MDdaRbHU7MQZz0VR3IDeZqGmYsvce/+iHZ73tjcYwn9kIOq+rsCUeqN/d8znG7Xv9Rs00EZvMng==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@mdream/rust-darwin-x64@1.4.0':
+    resolution: {integrity: sha512-mGl5vI3OSw/H8oRilIGIFE++dalM90u2qJ4xyceug4ppqLYJ5tCXPC0hRyAuvBt4s5GYni69e9l9X63zFU+Jbw==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@mdream/rust-freebsd-x64@1.4.0':
+    resolution: {integrity: sha512-KodshAvlTzTPe/SCIj0Wd7Ri4b60vIfFR+okbThKeF5VhxeYb0AVnvq2b89yvmPN/4Q4C+TCTgbPnFRbOY1iXg==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@mdream/rust-linux-arm-gnueabihf@1.4.0':
+    resolution: {integrity: sha512-lWipWfqj5XRMNVESoERtiEq9XSknrNus8QNwvPZ7RXgGbnwxdEHvRc/tSAilHb2Brh0Zut9YdlNZcy2Dgxw3lw==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [arm]
+    os: [linux]
+
+  '@mdream/rust-linux-arm64-gnu@1.4.0':
+    resolution: {integrity: sha512-7p6sn5cyWaCxxgm3zFqk/xb9QhKLKEG3v1k6zF4RMQBPyfjNnzZIOcD096anfDnX7FR/WUixfbQmLvCSPSEYVg==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@mdream/rust-linux-arm64-musl@1.4.0':
+    resolution: {integrity: sha512-gZyxcTopL9Q9miM4ey2Vl7QLpTDbDXDoM6lXa6T8owVDrUqGUC5CXLdC7+YrNzHgEIpC38I8E/xkYM7RSxpZhg==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  '@mdream/rust-linux-x64-gnu@1.4.0':
+    resolution: {integrity: sha512-1jF2/FVVUL0GfM70wmtBKhD39bJBZHk2T896SxnyNr49KbZloho+S0o9T58ssOnuRGxXIXxog+2Yk2LAykDGqw==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  '@mdream/rust-linux-x64-musl@1.4.0':
+    resolution: {integrity: sha512-Bxos0eq5UvOzrJhYiHBeywk+K5HuZyHcbKXvh/e9FycC0XDgByiGCBaGL+Lb2LTAB1rAiJUjO5QdptxqtAAPDQ==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  '@mdream/rust-win32-arm64-msvc@1.4.0':
+    resolution: {integrity: sha512-ySNGn2JpLYcGItmS1ud8mZK5ypop/hdwzexOrAory/oe9pCnJvnrADkiRYVKVWL7oCAX7o+DCHp+HVqAgDGJDg==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@mdream/rust-win32-x64-msvc@1.4.0':
+    resolution: {integrity: sha512-Y71kq6YAtfrXc7kmLqAL41w3tVaCAo8QCYQaDY6y+ItNczkqT9imgizK12cwkEUs9oNUVNTH5uoTCpwU6kSB9Q==}
+    engines: {node: '>= 22.0.0'}
+    cpu: [x64]
+    os: [win32]
+
   '@mixmark-io/domino@2.2.0':
     resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
 
@@ -474,8 +550,8 @@ packages:
     resolution: {integrity: sha512-Z+CZ3QaosfFaTqvhQsIktyGrjFjSC0Fa4EMph4mqKnWhmyoGICsV/8QK+8HpXut6zV7zwfWwqDmEjtk1Qf6EgQ==}
     engines: {node: '>=14.0.0'}
 
-  '@napi-rs/wasm-runtime@1.1.2':
-    resolution: {integrity: sha512-sNXv5oLJ7ob93xkZ1XnxisYhGYXfaG9f65/ZgYuAu3qt7b3NadcOEhLvx28hv31PgX8SZJRYrAIPQilQmFpLVw==}
+  '@napi-rs/wasm-runtime@1.1.5':
+    resolution: {integrity: sha512-AWPoBRJ9tsnVhor4sjO7rkni+7p+2IAEFj6cx06UgP10jkQHqay/36uRV/bFkgrh18D9vb4cr8Q0Pthskgzy+Q==}
     peerDependencies:
       '@emnapi/core': ^1.7.1
       '@emnapi/runtime': ^1.7.1
@@ -584,8 +660,8 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tybys/wasm-util@0.10.1':
-    resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
+  '@tybys/wasm-util@0.10.2':
+    resolution: {integrity: sha512-RoBvJ2X0wuKlWFIjrwffGw1IqZHKQqzIchKaadZZfnNpsAYp2mM0h36JtPCjNDAHGgYez/15uMBpfGwchhiMgg==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -701,10 +777,6 @@ packages:
   bytes@3.1.2:
     resolution: {integrity: sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg==}
     engines: {node: '>= 0.8'}
-
-  cac@6.7.14:
-    resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
-    engines: {node: '>=8'}
 
   call-bind-apply-helpers@1.0.2:
     resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
@@ -1243,8 +1315,8 @@ packages:
   mdast-util-to-string@4.0.0:
     resolution: {integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==}
 
-  mdream@0.15.3:
-    resolution: {integrity: sha512-mB367AFnSiL/45kqWVR4/eIdOwzcvXTuJuVcTO7OVkOqePMXba9eK0y81BWDAFR98W6g3KJztz/upLl/5nfssA==}
+  mdream@1.4.0:
+    resolution: {integrity: sha512-KrL5wO7qyO0U5q247ycdjQ/sg/hXqVEB2LR4g0VF44twoHNdRAw6/C9fuLXcdZ2KrkR6p38kOO279vidwC8ujQ==}
     hasBin: true
 
   media-typer@1.1.0:
@@ -1353,8 +1425,8 @@ packages:
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
-  nanoid@3.3.11:
-    resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
+  nanoid@3.3.12:
+    resolution: {integrity: sha512-ZB9RH/39qpq5Vu6Y+NmUaFhQR6pp+M2Xt76XBnEwDaGcVAqhlvxrl3B2bKS5D3NH3QR76v3aSrKaF/Kiy7lEtQ==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
@@ -1416,8 +1488,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  postcss@8.5.8:
-    resolution: {integrity: sha512-OW/rX8O/jXnm82Ey1k44pObPtdblfiuWnrd8X7GJ7emImCOstunGbXUpp7HdBrFQX6rJzn3sPT397Wp5aCwCHg==}
+  postcss@8.5.15:
+    resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
     engines: {node: ^10 || ^12 || >=14}
 
   property-information@7.2.0:
@@ -1559,6 +1631,10 @@ packages:
 
   tinyglobby@0.2.15:
     resolution: {integrity: sha512-j2Zq4NyQYG5XMST4cbs02Ak8iJUdxRM0XI5QyxXuZOzKOINmWurp3smXu3y5wDcJrptwpSjgXHzIQxR0omXljQ==}
+    engines: {node: '>=12.0.0'}
+
+  tinyglobby@0.2.17:
+    resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
 
   tinyrainbow@3.1.0:
@@ -1879,6 +1955,42 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
+  '@mdream/rust-android-arm-eabi@1.4.0':
+    optional: true
+
+  '@mdream/rust-android-arm64@1.4.0':
+    optional: true
+
+  '@mdream/rust-darwin-arm64@1.4.0':
+    optional: true
+
+  '@mdream/rust-darwin-x64@1.4.0':
+    optional: true
+
+  '@mdream/rust-freebsd-x64@1.4.0':
+    optional: true
+
+  '@mdream/rust-linux-arm-gnueabihf@1.4.0':
+    optional: true
+
+  '@mdream/rust-linux-arm64-gnu@1.4.0':
+    optional: true
+
+  '@mdream/rust-linux-arm64-musl@1.4.0':
+    optional: true
+
+  '@mdream/rust-linux-x64-gnu@1.4.0':
+    optional: true
+
+  '@mdream/rust-linux-x64-musl@1.4.0':
+    optional: true
+
+  '@mdream/rust-win32-arm64-msvc@1.4.0':
+    optional: true
+
+  '@mdream/rust-win32-x64-msvc@1.4.0':
+    optional: true
+
   '@mixmark-io/domino@2.2.0': {}
 
   '@modelcontextprotocol/sdk@1.29.0(zod@4.3.6)':
@@ -1905,11 +2017,11 @@ snapshots:
 
   '@mozilla/readability@0.5.0': {}
 
-  '@napi-rs/wasm-runtime@1.1.2(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)':
+  '@napi-rs/wasm-runtime@1.1.5(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)':
     dependencies:
       '@emnapi/core': 1.9.2
       '@emnapi/runtime': 1.9.2
-      '@tybys/wasm-util': 0.10.1
+      '@tybys/wasm-util': 0.10.2
     optional: true
 
   '@oxc-project/types@0.122.0': {}
@@ -1952,7 +2064,7 @@ snapshots:
 
   '@rolldown/binding-wasm32-wasi@1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)':
     dependencies:
-      '@napi-rs/wasm-runtime': 1.1.2(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)
+      '@napi-rs/wasm-runtime': 1.1.5(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)
     transitivePeerDependencies:
       - '@emnapi/core'
       - '@emnapi/runtime'
@@ -1968,7 +2080,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tybys/wasm-util@0.10.1':
+  '@tybys/wasm-util@0.10.2':
     dependencies:
       tslib: 2.8.1
     optional: true
@@ -2109,8 +2221,6 @@ snapshots:
   boolbase@1.0.0: {}
 
   bytes@3.1.2: {}
-
-  cac@6.7.14: {}
 
   call-bind-apply-helpers@1.0.2:
     dependencies:
@@ -2784,11 +2894,20 @@ snapshots:
     dependencies:
       '@types/mdast': 4.0.4
 
-  mdream@0.15.3:
-    dependencies:
-      cac: 6.7.14
-      pathe: 2.0.3
-      tinyglobby: 0.2.15
+  mdream@1.4.0:
+    optionalDependencies:
+      '@mdream/rust-android-arm-eabi': 1.4.0
+      '@mdream/rust-android-arm64': 1.4.0
+      '@mdream/rust-darwin-arm64': 1.4.0
+      '@mdream/rust-darwin-x64': 1.4.0
+      '@mdream/rust-freebsd-x64': 1.4.0
+      '@mdream/rust-linux-arm-gnueabihf': 1.4.0
+      '@mdream/rust-linux-arm64-gnu': 1.4.0
+      '@mdream/rust-linux-arm64-musl': 1.4.0
+      '@mdream/rust-linux-x64-gnu': 1.4.0
+      '@mdream/rust-linux-x64-musl': 1.4.0
+      '@mdream/rust-win32-arm64-msvc': 1.4.0
+      '@mdream/rust-win32-x64-msvc': 1.4.0
 
   media-typer@1.1.0: {}
 
@@ -3000,7 +3119,7 @@ snapshots:
 
   ms@2.1.3: {}
 
-  nanoid@3.3.11: {}
+  nanoid@3.3.12: {}
 
   negotiator@1.0.0: {}
 
@@ -3042,9 +3161,9 @@ snapshots:
 
   playwright-core@1.60.0: {}
 
-  postcss@8.5.8:
+  postcss@8.5.15:
     dependencies:
-      nanoid: 3.3.11
+      nanoid: 3.3.12
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
@@ -3264,6 +3383,11 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.4)
       picomatch: 4.0.4
 
+  tinyglobby@0.2.17:
+    dependencies:
+      fdir: 6.5.0(picomatch@4.0.4)
+      picomatch: 4.0.4
+
   tinyrainbow@3.1.0: {}
 
   toidentifier@1.0.1: {}
@@ -3362,9 +3486,9 @@ snapshots:
     dependencies:
       lightningcss: 1.32.0
       picomatch: 4.0.4
-      postcss: 8.5.8
+      postcss: 8.5.15
       rolldown: 1.0.0-rc.12(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)
-      tinyglobby: 0.2.15
+      tinyglobby: 0.2.17
     optionalDependencies:
       '@types/node': 25.5.0
       esbuild: 0.28.0
