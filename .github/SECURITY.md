@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.2.x   | Yes       |
+| 0.4.x   | Yes       |
+| < 0.4   | No        |
 
 ## Reporting a vulnerability
 
@@ -23,10 +24,10 @@ You can expect:
 
 This project fetches URLs by design. The following are not vulnerabilities:
 - The tool fetching a URL that was provided as input
-- The tool saving fetched content to the local cache directory
-- The tool returning file paths to cached content
+- The tool saving fetched content to the artefact store
+- The tool returning file paths to stored artefacts
 
 Security concerns include:
-- Path traversal in cache directory operations
+- Path traversal in artefact store operations
 - Arbitrary code execution via crafted responses
 - Credentials or secrets leaked in logs or responses
