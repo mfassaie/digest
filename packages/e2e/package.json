@@ -5,11 +5,14 @@
   "type": "module",
   "description": "End-to-end tests: drive the host tool handlers live (md flow needs no Docker; container flows return in M9)",
   "scripts": {
-    "test": "tsx verify-dev.ts",
+    "comment:deferred": "TODO: verify-html (Docker-dependent HTML test via container dispatch) and concurrent-fetch (parallel fetch stress test) need a running Docker daemon and the rebuilt digest:local image. Implement when the container is available.",
+    "test": "tsx verify-dev.ts && tsx verify-store.ts && tsx verify-settings.ts",
     "test:coverage": "node -e \"console.log('no unit tests here: live e2e scripts only')\"",
     "e2e": "tsx e2e-host.ts",
     "verify:dev": "tsx verify-dev.ts",
     "verify:docroot": "tsx verify-docroot.ts",
+    "verify:store": "tsx verify-store.ts",
+    "verify:settings": "tsx verify-settings.ts",
     "lint": "tsc --noEmit"
   },
   "devDependencies": {

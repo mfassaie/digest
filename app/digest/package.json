@@ -1,6 +1,6 @@
 {
   "name": "@mfassaie/digest",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "MCP server that fetches web pages via a headless browser (CloakBrowser in Docker) and serves structured Markdown: summary, sections, keywords or full text",
   "bin": {

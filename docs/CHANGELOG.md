@@ -5,33 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 13-06-2026
 
-### Changed
-
-- Restructured into a `packages/` monorepo: `packages/digest` (the published
-  host MCP server, carrying the `docker/` build context), `packages/container`
-  (in-image service), `packages/eval` (converter eval). The repo root is now a
-  private workspace. Dev mode (`DIGEST_REPO_ROOT`) points at `packages/digest`.
+Breaking release: the tool surface, artefact model, and repo structure are
+redesigned (ADR-010, ADR-011). No backwards compatibility with 0.2.x tool
+names or cache layout.
 
 ### Added
 
-- Configurable document root via `DIGEST_DOCUMENT_ROOT` (default
-  `~/.claude/digest`), holding `cache/` and `logs/`. Each session may set its
-  own; `install --document-root <path>` writes it.
-- Centralised logs under `<document-root>/logs/`: `digest-server.log` (host)
-  and `cloakbrowser.log` (the container, via a `docker logs -f` follower).
-- Dev mode via `DIGEST_REPO_ROOT` (or `install --repo <path>`): runs the
-  server from the repo source under `tsx --watch`, hot-reloading on edits.
-- `doctor` reports the document root, logs dir, and dev-mode repo.
+- **4-tool surface** replacing the former `fetch`/`read` pair (ADR-011):
+  `fetch_file` (fetch + store), `read_document` (serve the document Digest),
+  `read_section` (serve individual sections with content blocks),
+  `write_section` (hash-locked optimistic section replacement).
+- **Artefact store** under `{DIGEST_ARTEFACT_ROOT}/artefact/{id}/` with
+  deterministic 22-char artefact ids, `digest.json` per artefact, and a
+  corpus-wide `artefact-index.json`. JSONL event log per document.
+- **Markdown engine** (remark/mdast): fold headings into a typed section tree
+  with sticky ids, content-only hashes, byte-range splice for writes, and
+  extractive summary/keywords.
+- **Settings engine** with zod-validated `digest.settings.json`: per-MIME
+  pipeline rules (`retrieval`, `parser`, `runtime`, `escalate`), chunking
+  strategy, and fetch budget. Precedence: `DIGEST_CONFIG` env > cwd (dev
+  mode) > `$XDG_CONFIG_HOME` > built-in defaults. Published JSON schema.
+- **SWR freshness** via `http-cache-semantics`: conditional revalidation
+  (ETag/If-Modified-Since), configurable retries, `source_changed`
+  divergence detection between the stored file hash and the document's
+  conversion snapshot.
+- **Chunking** (chunk_mode `standard`): section-based for markdown,
+  fixed-size byte ranges for binary. Per-MIME strategy in settings.
+- **HTML adapter**: defuddle + linkedom running in-process for
+  `runtime: local` rules. Container dispatch with an instruction protocol
+  (`retrieval`/`parser`/`escalate`) for `runtime: container` rules.
+- `doctor` now reports the settings source, effective per-MIME rule table,
+  and downgrades Docker checks to warnings when no rule needs the container.
+- E2E tests: `verify-store` (full fetch/read/write/read-section round-trip,
+  no Docker), `verify-settings` (settings precedence, rule resolution,
+  doctor output).
 
 ### Changed
 
-- The shared container is now document-root-agnostic: it returns the fetched
-  + converted content over `/fetch` and the host writes the files into the
-  session's document root. The `/data` bind-mount is removed. This lets one
-  shared container serve sessions with different document roots (ADR-009,
-  amending ADR-007).
+- **Repo restructure** (ADR-010): `app/digest` (the published
+  `@mfassaie/digest`), `packages/shared` (`@digest/shared`, all host-side
+  document logic), `packages/mcp-server` (`@digest/mcp-server`, tool
+  definitions and handlers), `packages/docker` (`@digest/docker`, container
+  lifecycle, in-image service, build context), `packages/e2e`, and
+  `packages/tooling-evals`. esbuild bundles workspace packages into the
+  published app; npm deps are external.
+- `DIGEST_DOCUMENT_ROOT` renamed to `DIGEST_ARTEFACT_ROOT`.
+- New env var `DIGEST_CONFIG` for explicit settings file path.
+- Container is document-root-agnostic: returns content over HTTP, the host
+  writes files (ADR-009). Docker is required only when effective rules
+  specify `runtime: container`.
+
+### Removed
+
+- Former `fetch`/`read` tool names, `structure.json`/`meta.json` cache
+  layout, and `/data` bind-mount. All replaced by the artefact store and
+  the 4-tool surface.
 
 ## [0.2.0] - 2026-06-10
 

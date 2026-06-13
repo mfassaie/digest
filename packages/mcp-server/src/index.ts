@@ -10,6 +10,9 @@ export {
   handleReadSection, registerReadSectionTool, READ_SECTION_TOOL,
 } from './tools/read-section.js';
 export {
+  handleWriteSection, registerWriteSectionTool, WRITE_SECTION_TOOL,
+} from './tools/write-section.js';
+export {
   projectDocumentDigest, formatError, formatRedirect, jsonText, text,
   type ReadMode, type TextResult,
 } from './response.js';
