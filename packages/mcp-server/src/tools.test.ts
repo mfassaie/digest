@@ -51,7 +51,7 @@ describe('registered tools over an in-memory MCP connection', () => {
     const { server, client } = await connectedClient(testDeps());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort())
-      .toEqual(['fetch_file', 'read_document']);
+      .toEqual(['fetch_file', 'read_document', 'read_section']);
     expect(server.server.getClientVersion()?.name).toBe('test-client');
     await client.close();
   });

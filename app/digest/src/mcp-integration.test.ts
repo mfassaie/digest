@@ -59,12 +59,15 @@ async function callOnce(
 }
 
 describe('MCP server over the protocol', () => {
-  it('lists fetch_file and read_document, and only those', async () => {
+  it('lists all registered tools', async () => {
     const result = await callOnce(
       testDeps(), (c) => c.listTools(),
     ) as { tools?: { name?: string }[] };
     const names = (result.tools ?? []).map((t) => t.name).sort();
-    expect(names).toEqual(['fetch_file', 'read_document']);
+    // M5 adds read_section alongside the M4 tools.
+    expect(names).toEqual([
+      'fetch_file', 'read_document', 'read_section',
+    ]);
   });
 
   it('fetch_file then read_document works end-to-end through tool calls',
