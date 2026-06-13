@@ -48,7 +48,9 @@ describe('imagePresent', () => {
 });
 
 describe('ensureContainer', () => {
-  const healthy = async () => ({ cdpConnected: true });
+  const healthy = async () => ({
+    cdpConnected: true, status: 'ok', version: '0.3.0',
+  });
 
   it('runs a new container when absent and returns mapped baseUrl', async () => {
     const r = fakeRunner({
@@ -134,6 +136,21 @@ describe('ensureContainer', () => {
       .rejects.toThrow('mapped port');
   });
 
+  it('throws when the container version is too old (M9 version gate)',
+    async () => {
+      const r = fakeRunner({
+        version: { stdout: '29', code: 0 },
+        'image inspect': { code: 0 },
+        inspect: { stdout: 'true', code: 0 },
+        port: { stdout: '127.0.0.1:8000', code: 0 },
+      });
+      const old = async () => ({
+        cdpConnected: true, status: 'ok', version: '0.2.0',
+      });
+      await expect(ensureContainer(r, { healthCheck: old }))
+        .rejects.toThrow('Run `npx digest setup`');
+    });
+
   it('retries an initially unhealthy container until it reports healthy', async () => {
     const r = fakeRunner({
       version: { stdout: '29', code: 0 },
@@ -145,8 +162,12 @@ describe('ensureContainer', () => {
     const flaky = async () => {
       calls += 1;
       if (calls === 1) throw new Error('ECONNREFUSED');
-      if (calls === 2) return { cdpConnected: false, status: 'starting' };
-      return { cdpConnected: true };
+      if (calls === 2) {
+        return {
+          cdpConnected: false, status: 'starting', version: '0.3.0',
+        };
+      }
+      return { cdpConnected: true, status: 'ok', version: '0.3.0' };
     };
     const { baseUrl } = await ensureContainer(r, { healthCheck: flaky });
     expect(baseUrl).toBe('http://127.0.0.1:7000');

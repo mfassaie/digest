@@ -1,6 +1,8 @@
 import { execFile } from 'node:child_process';
 import { DockerUnavailableError } from '@digest/shared';
-import { checkHealth } from './container-client.js';
+import {
+  checkHealth, checkMinVersion, type HealthStatus,
+} from './container-client.js';
 
 export { DockerUnavailableError };
 
@@ -78,7 +80,7 @@ async function mappedPort(r: CommandRunner): Promise<number> {
 export async function ensureContainer(
   r: CommandRunner,
   opts: {
-    healthCheck?: (baseUrl: string) => Promise<{ cdpConnected: boolean }>;
+    healthCheck?: (baseUrl: string) => Promise<HealthStatus>;
   } = {},
 ): Promise<{ baseUrl: string }> {
   await detectDocker(r);
@@ -112,20 +114,26 @@ export async function ensureContainer(
 
   const port = await mappedPort(r);
   const baseUrl = `http://127.0.0.1:${port}`;
-  await waitForHealth(baseUrl, opts.healthCheck ?? checkHealth);
+  const health = await waitForHealth(baseUrl, opts.healthCheck ?? checkHealth);
+  // M9 version gate (ADR-010 section 4.5): fail loudly when the running
+  // container is too old for the instruction protocol.
+  const versionHint = checkMinVersion(health);
+  if (versionHint !== null) {
+    throw new DockerUnavailableError(versionHint);
+  }
   return { baseUrl };
 }
 
 async function waitForHealth(
   baseUrl: string,
-  health: (b: string) => Promise<{ cdpConnected: boolean; status?: string }>,
-): Promise<void> {
+  health: (b: string) => Promise<HealthStatus>,
+): Promise<HealthStatus> {
   const deadline = Date.now() + HEALTH_BUDGET_MS;
   let lastErr = '';
   while (Date.now() < deadline) {
     try {
       const h = await health(baseUrl);
-      if (h.cdpConnected) return;
+      if (h.cdpConnected) return h;
       lastErr = `status=${h.status ?? 'unknown'}`;
     } catch (err) {
       lastErr = err instanceof Error ? err.message : String(err);

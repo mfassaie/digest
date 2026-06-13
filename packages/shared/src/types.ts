@@ -35,6 +35,16 @@ export interface CacheMeta {
   structureFile?: string;
 }
 
+// Per-request instruction from the host to the container, derived from the
+// resolved pipeline rule (per-type pipelines design section 4.4/4.5, plan M9).
+// Optional: absent = legacy behaviour (backwards compatible with pre-M9
+// containers).
+export interface PipelineInstruction {
+  retrieval: 'http' | 'browser';
+  parser: 'defuddle' | 'passthrough' | 'raw';
+  escalate: 'browser' | 'none';
+}
+
 // Request sent to the in-container service. The container is artefact-root-
 // agnostic, so no cache path is sent — the host writes the returned content.
 export interface ContainerFetchRequest {
@@ -42,6 +52,9 @@ export interface ContainerFetchRequest {
   timeoutSeconds: number;
   rawOnly: boolean;
   validators?: { etag?: string; lastModified?: string };
+  // M9: instruction-driven protocol (design section 4.4). Absent = legacy
+  // behaviour, so a new host degrades cleanly against an old container.
+  instruction?: PipelineInstruction;
 }
 
 // Content the container returns for the host to write.

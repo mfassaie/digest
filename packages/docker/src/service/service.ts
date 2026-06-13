@@ -5,7 +5,9 @@ import { orchestrateFetch, type FetchInput } from './fetch-orchestrator.js';
 
 const SERVICE_PORT = Number(process.env.SERVICE_PORT ?? 8932);
 const CDP_URL = process.env.CDP_URL ?? 'http://127.0.0.1:9222';
-const VERSION = process.env.DIGEST_VERSION ?? '0.2.0';
+// M9: version bump signals instruction protocol support. The host checks
+// this via /healthz min-version gate (ADR-010 section 4.5).
+const VERSION = process.env.DIGEST_VERSION ?? '0.3.0';
 
 const engine = new CdpEngine(CDP_URL);
 
@@ -35,6 +37,10 @@ function validateInput(raw: unknown): FetchInput | null {
     rawOnly: r.rawOnly === true,
     validators: typeof r.validators === 'object' && r.validators !== null
       ? r.validators as FetchInput['validators'] : undefined,
+    // M9: instruction field. Absent = legacy behaviour (backwards
+    // compatible). Validated loosely: the service trusts the host.
+    instruction: typeof r.instruction === 'object' && r.instruction !== null
+      ? r.instruction as FetchInput['instruction'] : undefined,
   };
 }
 

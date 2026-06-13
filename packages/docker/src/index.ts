@@ -8,6 +8,8 @@ export {
   type CommandRunner,
 } from './host/docker.js';
 export {
-  checkHealth, containerFetch, type HealthStatus,
+  checkHealth, containerFetch,
+  checkMinVersion, compareSemver, MIN_SERVICE_VERSION,
+  type HealthStatus,
 } from './host/container-client.js';
 export { startBrowserLogFollower } from './host/log-follower.js';

@@ -43,6 +43,8 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "defuddle": "^0.15.0",
+    "linkedom": "^0.18.12",
     "zod": "^4.3.6"
   },
   "devDependencies": {

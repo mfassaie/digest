@@ -28,13 +28,6 @@ export interface FetchFileArgs {
   chunk_mode?: 'none' | 'standard';
 }
 
-export function browserNeededMessage(mime: string): string {
-  return `the effective rule for ${mime} needs the stealth browser — ` +
-    'html/container support lands in M9. Until then set ' +
-    `types['${mime}'] to { "retrieval": "http", "runtime": "local" } in ` +
-    'the digest settings to fetch the raw bytes over plain http.';
-}
-
 export async function handleFetchFile(
   args: FetchFileArgs, deps: ServerDeps,
 ): Promise<TextResult> {
@@ -46,10 +39,6 @@ export async function handleFetchFile(
       return jsonText(result.digest);
     case 'redirect':
       return text(formatRedirect(result.fromUrl, result.toUrl));
-    case 'browser-needed':
-      return text(
-        formatError(args.uri, browserNeededMessage(result.mime)), true,
-      );
     case 'error':
       return text(formatError(args.uri, result.reason), true);
   }

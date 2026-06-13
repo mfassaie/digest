@@ -89,7 +89,7 @@ describe('readDocumentArtefact by uri', () => {
     expect(out).toEqual({ kind: 'error', reason: 'fetch failed' });
   });
 
-  it('passes browser-needed through for md uris under custom rules',
+  it('soft-errors when custom rules need the browser but no transport',
     async () => {
       const settings = {
         ...DEFAULT_SETTINGS,
@@ -104,7 +104,9 @@ describe('readDocumentArtefact by uri', () => {
       const out = await readDocumentArtefact(
         { store, settings, fetchImpl: noNetwork() }, MD_URL,
       );
-      expect(out).toEqual({ kind: 'browser-needed', mime: 'text/markdown' });
+      expect(out.kind).toBe('error');
+      expect((out as { reason: string }).reason)
+        .toContain('stealth browser');
     });
 
   it('reads local markdown paths end to end', async () => {
@@ -120,6 +122,75 @@ describe('readDocumentArtefact by uri', () => {
     const out = await readDocumentArtefact(deps(), 'mailto:a@b.c');
     expect(out.kind).toBe('error');
   });
+});
+
+const SIMPLE_HTML = '<!DOCTYPE html><html><head><title>Page</title></head>' +
+  '<body><main><h1>Page Title</h1>' +
+  '<p>Content paragraph here.</p></main></body></html>';
+
+describe('readDocumentArtefact with HTML (M9)', () => {
+  it('converts a stored HTML file Digest into a document', async () => {
+    await store.createDigest({
+      originUri: 'https://ex.com/page.html',
+      type: 'file',
+      file: {
+        name: 'page.html', mimeType: 'text/html', bytes: SIMPLE_HTML,
+      },
+    });
+    const out = await readDocumentArtefact(
+      deps(), 'https://ex.com/page.html',
+    );
+    expect(out.kind).toBe('document');
+    if (out.kind !== 'document') return;
+    expect(out.digest.type).toBe('document');
+    expect(out.digest.file.mime_type).toBe('text/markdown');
+    expect(out.digest.document?.writable).toBe('none');
+  });
+
+  it('fetches and converts an html URI end to end', async () => {
+    const htmlServer: typeof fetch = async () => new Response(SIMPLE_HTML, {
+      status: 200, headers: { 'content-type': 'text/html' },
+    });
+    // Override html rule to allow local retrieval for testing.
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      types: {
+        ...DEFAULT_SETTINGS.types,
+        'text/html': {
+          retrieval: 'http' as const, parser: 'raw' as const,
+          runtime: 'local' as const, escalate: 'none' as const,
+        },
+      },
+    };
+    const out = await readDocumentArtefact(
+      { store, settings, fetchImpl: htmlServer },
+      'https://ex.com/page.html',
+    );
+    expect(out.kind).toBe('document');
+    if (out.kind !== 'document') return;
+    expect(out.digest.document?.name).toBe('Page');
+  });
+
+  it('does not re-convert an existing document for an html source',
+    async () => {
+      await store.createDigest({
+        originUri: 'https://ex.com/page.html',
+        type: 'file',
+        file: {
+          name: 'page.html', mimeType: 'text/html', bytes: SIMPLE_HTML,
+        },
+      });
+      const first = await readDocumentArtefact(
+        deps(), 'https://ex.com/page.html',
+      );
+      if (first.kind !== 'document') throw new Error('expected document');
+      const second = await readDocumentArtefact(
+        deps(), 'https://ex.com/page.html',
+      );
+      if (second.kind !== 'document') throw new Error('expected document');
+      expect(second.digest.document?.sections.id)
+        .toBe(first.digest.document?.sections.id);
+    });
 });
 
 describe('readDocumentArtefact by artefact id', () => {

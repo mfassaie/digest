@@ -96,7 +96,7 @@ describe('the registered tool surface', () => {
     expect(textOf(read)).not.toContain('file://');
   });
 
-  it('read_document on a non-md source returns the roadmap error',
+  it('read_document on an unsupported source returns the roadmap error',
     async () => {
       const read = await callOnce(
         testDeps(),
@@ -105,6 +105,7 @@ describe('the registered tool surface', () => {
         ),
       ) as { [x: string]: unknown };
       expect(read.isError).toBe(true);
-      expect(textOf(read)).toContain('markdown (.md) sources only');
+      expect(textOf(read)).toContain('application/pdf');
+      expect(textOf(read)).toContain('roadmap');
     });
 });

@@ -230,3 +230,148 @@ describe('orchestrateFetch', () => {
     expect(out.outcome).toBe('fetch-failed');
   });
 });
+
+describe('orchestrateFetch with instruction (M9)', () => {
+  it('browser retrieval skips preflight and renders directly', async () => {
+    const engine = new FakeEngine([], {
+      contentType: 'text/html',
+      html: '<html><body><main><h1>Direct</h1>'
+        + '<p>Rendered directly via instruction.</p></main></body></html>',
+    });
+    const out = await orchestrateFetch(engine, {
+      ...base, url: 'https://example.com/page',
+      instruction: {
+        retrieval: 'browser', parser: 'defuddle', escalate: 'browser',
+      },
+    });
+    expect(out.outcome).toBe('fetched');
+    if (out.outcome !== 'fetched') return;
+    expect(engine.rendered).toBe(true);
+    // No preflight requests should have been made.
+    expect(engine.requests).toHaveLength(0);
+    expect(out.content.markdown).toContain('Direct');
+  });
+
+  it('browser retrieval with raw parser returns raw bytes', async () => {
+    const engine = new FakeEngine([], {
+      contentType: 'text/html',
+      html: '<html><body>raw content</body></html>',
+    });
+    const out = await orchestrateFetch(engine, {
+      ...base, url: 'https://example.com/page',
+      instruction: {
+        retrieval: 'browser', parser: 'raw', escalate: 'none',
+      },
+    });
+    expect(out.outcome).toBe('fetched');
+    if (out.outcome !== 'fetched') return;
+    expect(out.content.markdown).toBeUndefined();
+    expect(rawText(out.content.raw)).toContain('raw content');
+  });
+
+  it('http retrieval with defuddle parser renders and converts HTML',
+    async () => {
+      const engine = new FakeEngine(
+        [{
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+          body: '<html><body>preflight</body></html>',
+        }],
+        {
+          contentType: 'text/html',
+          html: '<html><body><main><h1>Instructed</h1>'
+            + '<p>Content via http retrieval with defuddle.</p>'
+            + '</main></body></html>',
+        },
+      );
+      const out = await orchestrateFetch(engine, {
+        ...base, url: 'https://example.com/page',
+        instruction: {
+          retrieval: 'http', parser: 'defuddle', escalate: 'browser',
+        },
+      });
+      expect(out.outcome).toBe('fetched');
+      if (out.outcome !== 'fetched') return;
+      expect(out.content.markdown).toContain('Instructed');
+    });
+
+  it('http retrieval with raw parser returns raw bytes, no render',
+    async () => {
+      const engine = new FakeEngine([{
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+        body: '{"key":"value"}',
+      }]);
+      const out = await orchestrateFetch(engine, {
+        ...base, url: 'https://example.com/data.json',
+        instruction: {
+          retrieval: 'http', parser: 'raw', escalate: 'none',
+        },
+      });
+      expect(out.outcome).toBe('fetched');
+      if (out.outcome !== 'fetched') return;
+      expect(engine.rendered).toBe(false);
+      expect(out.content.markdown).toBeUndefined();
+      expect(rawText(out.content.raw)).toBe('{"key":"value"}');
+    });
+
+  it('escalation via instruction on bot-block status', async () => {
+    const engine = new FakeEngine(
+      [{ status: 403 }],
+      {
+        contentType: 'text/html',
+        html: '<html><body><main><h1>Unblocked</h1>'
+          + '<p>Escalated content.</p></main></body></html>',
+      },
+    );
+    const out = await orchestrateFetch(engine, {
+      ...base, url: 'https://example.com/blocked',
+      instruction: {
+        retrieval: 'http', parser: 'defuddle', escalate: 'browser',
+      },
+    });
+    expect(out.outcome).toBe('fetched');
+    expect(engine.rendered).toBe(true);
+  });
+
+  it('no escalation when instruction says escalate: none', async () => {
+    const engine = new FakeEngine([{ status: 403 }]);
+    const out = await orchestrateFetch(engine, {
+      ...base, url: 'https://example.com/blocked',
+      instruction: {
+        retrieval: 'http', parser: 'raw', escalate: 'none',
+      },
+    });
+    expect(out.outcome).toBe('http-error');
+    expect(engine.rendered).toBe(false);
+  });
+
+  it('browser retrieval returns http-error when render fails with 4xx',
+    async () => {
+      const engine = new FakeEngine([], { status: 403 });
+      const out = await orchestrateFetch(engine, {
+        ...base, url: 'https://example.com/page',
+        instruction: {
+          retrieval: 'browser', parser: 'defuddle', escalate: 'browser',
+        },
+      });
+      expect(out.outcome).toBe('http-error');
+      if (out.outcome !== 'http-error') return;
+      expect(out.status).toBe(403);
+    });
+
+  it('absent instruction preserves legacy behaviour', async () => {
+    // Same as the first test in the file: legacy path renders HTML.
+    const engine = new FakeEngine([
+      { status: 200, headers: { 'content-type': 'text/html' }, body: '<raw>' },
+    ]);
+    const out = await orchestrateFetch(engine, {
+      ...base, url: 'https://example.com/page',
+      // No instruction field.
+    });
+    expect(out.outcome).toBe('fetched');
+    if (out.outcome !== 'fetched') return;
+    expect(engine.rendered).toBe(true);
+    expect(out.content.markdown).toContain('Rendered');
+  });
+});
