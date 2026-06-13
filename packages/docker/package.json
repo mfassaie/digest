@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@digest/shared": "workspace:*",
-    "defuddle": "^0.15.0",
+    "defuddle": "^0.18.1",
     "linkedom": "^0.18.12",
     "playwright-core": "^1.49.1"
   },
