@@ -34,6 +34,9 @@ export type HttpFetchOutcome =
       bytes: Uint8Array;
       etag?: string;
       lastModified?: string;
+      // Cache-related headers for freshness policy (M7 SWR).
+      cacheControl?: string;
+      expires?: string;
     }
   | { outcome: 'not-modified' }
   | { outcome: 'cross-host-redirect'; fromUrl: string; toUrl: string }
@@ -168,6 +171,8 @@ async function attemptFetch(
       bytes,
       etag: res.headers.get('etag') ?? undefined,
       lastModified: res.headers.get('last-modified') ?? undefined,
+      cacheControl: res.headers.get('cache-control') ?? undefined,
+      expires: res.headers.get('expires') ?? undefined,
     });
   }
   return done({

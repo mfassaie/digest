@@ -22,10 +22,59 @@ export type ReadDocumentResult =
   | { kind: 'browser-needed'; mime: string }
   | { kind: 'error'; reason: string };
 
-// source_changed is plumbed through to the response but stays false until
-// M7 wires the source_file_hash divergence check (design §2.6).
-function documentResult(digest: Digest): ReadDocumentResult {
-  return { kind: 'document', digest, sourceChanged: false };
+// Source-change divergence detection (ADR-011 design 2.6, plan M7):
+// compare the document's source_file_hash against the source file
+// Digest's current file.hash. If they differ, the source has been
+// re-fetched with new content since the document was last converted.
+async function checkSourceChanged(
+  deps: PipelineDeps, docDigest: Digest,
+): Promise<boolean> {
+  if (docDigest.document === undefined) return false;
+  const sourceRelation = docDigest.related?.find(
+    (r) => r.type === 'converted_from',
+  );
+  if (sourceRelation === undefined) return false;
+  const sourceDigest = await deps.store.readDigest(sourceRelation.id);
+  if (sourceDigest === null) return false;
+  return sourceDigest.file.hash !== docDigest.document.source_file_hash;
+}
+
+// When the source has changed but the document is untouched since
+// conversion, auto-regenerate the document from the updated source
+// (design 2.6). The document is "untouched" if its master md's hash
+// matches the source file's hash at the time of conversion (i.e.
+// file.hash === document.source_file_hash). If the document has been
+// locally edited, we never auto-overwrite: report source_changed instead.
+async function resolveDocumentResult(
+  deps: PipelineDeps, docDigest: Digest,
+): Promise<ReadDocumentResult> {
+  const changed = await checkSourceChanged(deps, docDigest);
+  if (!changed) {
+    return { kind: 'document', digest: docDigest, sourceChanged: false };
+  }
+
+  // Source has changed. Check whether the document's own content has been
+  // edited since conversion: if file.hash equals source_file_hash, the
+  // master md is still the verbatim copy from conversion, so we can
+  // safely regenerate.
+  const doc = docDigest.document!;
+  const untouched = docDigest.file.hash === doc.source_file_hash;
+  if (!untouched) {
+    // Document was locally edited: never auto-overwrite.
+    return { kind: 'document', digest: docDigest, sourceChanged: true };
+  }
+
+  // Regenerate: re-convert from the updated source file Digest.
+  const sourceRelation = docDigest.related!.find(
+    (r) => r.type === 'converted_from',
+  )!;
+  const sourceDigest = await deps.store.readDigest(sourceRelation.id);
+  if (sourceDigest === null) {
+    // Source disappeared: serve stale document with the divergence flag.
+    return { kind: 'document', digest: docDigest, sourceChanged: true };
+  }
+  const regenerated = await convertMarkdownFile(deps, sourceDigest);
+  return { kind: 'document', digest: regenerated, sourceChanged: false };
 }
 
 export async function readDocumentArtefact(
@@ -39,11 +88,11 @@ export async function readDocumentArtefact(
   }
   const uri = classified.url;
   const existing = await deps.store.readDigest(artefactId(uri, 'document'));
-  if (existing !== null) return documentResult(existing);
+  if (existing !== null) return resolveDocumentResult(deps, existing);
 
   let fileDigest = await deps.store.readDigest(artefactId(uri, 'file'));
   if (fileDigest === null) {
-    // Absent → fetch_file internally (design §2.3). Non-md uris are
+    // Absent -> fetch_file internally (design 2.3). Non-md uris are
     // refused on the provisional type before any retrieval: even a
     // successful fetch would end unsupported in v1.
     if (!isMarkdownUri(uri)) {
@@ -63,11 +112,13 @@ async function readById(
   if (digest === null) {
     return { kind: 'error', reason: `unknown artefact id: ${id}` };
   }
-  if (digest.type === 'document') return documentResult(digest);
+  if (digest.type === 'document') {
+    return resolveDocumentResult(deps, digest);
+  }
   const hop = digest.related?.find((r) => r.type === 'converted_to');
   if (hop !== undefined) {
     const document = await deps.store.readDigest(hop.id);
-    if (document !== null) return documentResult(document);
+    if (document !== null) return resolveDocumentResult(deps, document);
   }
   return serveFromFile(deps, digest);
 }
@@ -82,11 +133,14 @@ async function serveFromFile(
       mime: fileDigest.file.mime_type,
     };
   }
-  // Never regenerate an existing document on read: section ids are sticky
-  // and refresh policy is M7's concern.
+  // If a document Digest already exists, run divergence check (M7).
   const existing = await deps.store.readDigest(
     artefactId(fileDigest.origin_uri, 'document'),
   );
-  if (existing !== null) return documentResult(existing);
-  return documentResult(await convertMarkdownFile(deps, fileDigest));
+  if (existing !== null) return resolveDocumentResult(deps, existing);
+  // Fresh conversion from the file: source_changed is false by
+  // construction (the source_file_hash is set from the file's current
+  // hash during conversion).
+  const converted = await convertMarkdownFile(deps, fileDigest);
+  return { kind: 'document', digest: converted, sourceChanged: false };
 }

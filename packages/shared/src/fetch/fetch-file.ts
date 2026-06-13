@@ -12,6 +12,7 @@ import type { Settings } from '../settings/schema.js';
 import { artefactId } from '../store/ids.js';
 import type { Digest } from '../store/record.js';
 import type { ArtefactStore } from '../store/store.js';
+import { evaluateFreshness, computeFreshUntil } from './freshness.js';
 import { httpFetch } from './http-engine.js';
 import { classifyResource, readLocalFile } from './local-file.js';
 
@@ -185,12 +186,164 @@ export async function fetchFileArtefact(
 
   const entry = prev === null
     ? null : await deps.store.readIndexEntry(id);
+
+  // SWR freshness check (ADR-011 design 2.6, plan M7): fresh entries
+  // return the stored Digest without any network call; stale entries
+  // return the stored Digest immediately and fire a background
+  // revalidation; misses go through the synchronous fetch path.
+  const now = deps.now?.() ?? new Date();
+  const verdict = evaluateFreshness(entry, { now });
+
+  if (verdict.status === 'fresh' && prev !== null) {
+    log?.write({ event: 'fresh', source: 'cache' });
+    return { kind: 'digest', digest: prev, source: 'cache' };
+  }
+
+  if (verdict.status === 'stale' && prev !== null) {
+    log?.write({ event: 'stale', source: 'cache' });
+    // Fire background revalidation: abort-bounded, fire-and-forget,
+    // errors logged to the artefact's pipeline jsonl.
+    fireBackgroundRevalidation(deps, resource.url, id, provisional, prev,
+      entry, log);
+    return { kind: 'digest', digest: prev, source: 'cache' };
+  }
+
+  // Miss: synchronous fetch with retries from settings.
+  return synchronousFetch(
+    deps, resource.url, id, provisional, prev, entry, log, chunkMode,
+  );
+}
+
+// Background revalidation (SWR, plan M7): fire-and-forget, abort-bounded
+// with remaining fetch budget, errors caught and logged.
+function fireBackgroundRevalidation(
+  deps: PipelineDeps,
+  url: string,
+  id: string,
+  provisional: string,
+  prev: Digest,
+  entry: import('../store/record.js').ArtefactIndexEntry | null,
+  log: import('../jsonl-log.js').JsonlWriter | undefined,
+): void {
+  const controller = new AbortController();
+  const budget = deps.settings.fetch.timeout_seconds * 1000;
+  const timer = setTimeout(() => controller.abort(), budget);
+
+  const work = async (): Promise<void> => {
+    try {
+      const validators = entry !== null
+        && (entry.origin_etag !== undefined
+            || entry.last_modified !== undefined)
+        ? { etag: entry.origin_etag, lastModified: entry.last_modified }
+        : undefined;
+      // Wrap fetchImpl to honour the abort signal.
+      const boundFetch: typeof fetch = async (input, init) => {
+        const merged = {
+          ...init,
+          signal: controller.signal,
+        };
+        return (deps.fetchImpl ?? fetch)(input, merged);
+      };
+      const outcome = await httpFetch({
+        url,
+        timeoutSeconds: deps.settings.fetch.timeout_seconds,
+        retries: 0,
+        validators,
+      }, { fetchImpl: boundFetch });
+      log?.write({
+        event: 'revalidate', outcome: outcome.outcome,
+      });
+
+      switch (outcome.outcome) {
+        case 'fetched': {
+          const mime = outcome.contentType === undefined
+            ? provisional : normaliseMime(outcome.contentType);
+          const now = deps.now?.() ?? new Date();
+          const freshUntil = computeFreshUntil(
+            collectResponseHeaders(outcome), { now },
+          );
+          await deps.store.createDigest({
+            originUri: url,
+            type: 'file',
+            file: {
+              name: fileNameForUrl(outcome.finalUrl, mime),
+              mimeType: mime,
+              bytes: outcome.bytes,
+            },
+            related: prev.related,
+            index: {
+              origin_etag: outcome.etag,
+              last_modified: outcome.lastModified,
+              last_fetched: now.toISOString(),
+              fresh_until: freshUntil,
+            },
+          });
+          break;
+        }
+        case 'not-modified': {
+          const now = deps.now?.() ?? new Date();
+          await deps.store.updateDigest(id, {
+            index: { last_fetched: now.toISOString() },
+          });
+          break;
+        }
+        default:
+          log?.write({
+            event: 'revalidate-failed', outcome: outcome.outcome,
+          });
+          break;
+      }
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      log?.write({ event: 'revalidate-error', reason });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  // Fire-and-forget: the caller does not await this.
+  void work();
+}
+
+function collectResponseHeaders(
+  outcome: {
+    contentType?: string; etag?: string; lastModified?: string;
+    cacheControl?: string; expires?: string;
+  },
+): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (outcome.contentType !== undefined) {
+    h['content-type'] = outcome.contentType;
+  }
+  if (outcome.etag !== undefined) h['etag'] = outcome.etag;
+  if (outcome.lastModified !== undefined) {
+    h['last-modified'] = outcome.lastModified;
+  }
+  if (outcome.cacheControl !== undefined) {
+    h['cache-control'] = outcome.cacheControl;
+  }
+  if (outcome.expires !== undefined) h['expires'] = outcome.expires;
+  return h;
+}
+
+// Synchronous fetch path (miss or explicit re-fetch): retries from
+// settings, cache headers updated.
+async function synchronousFetch(
+  deps: PipelineDeps,
+  url: string,
+  id: string,
+  provisional: string,
+  prev: Digest | null,
+  entry: import('../store/record.js').ArtefactIndexEntry | null,
+  log: import('../jsonl-log.js').JsonlWriter | undefined,
+  chunkMode: ChunkMode = 'none',
+): Promise<FetchFileResult> {
   const validators = entry !== null
     && (entry.origin_etag !== undefined || entry.last_modified !== undefined)
     ? { etag: entry.origin_etag, lastModified: entry.last_modified }
     : undefined;
   const outcome = await httpFetch({
-    url: resource.url,
+    url,
     timeoutSeconds: deps.settings.fetch.timeout_seconds,
     retries: deps.settings.fetch.retries,
     validators,
@@ -201,8 +354,12 @@ export async function fetchFileArtefact(
     case 'fetched': {
       const mime = outcome.contentType === undefined
         ? provisional : normaliseMime(outcome.contentType);
+      const now = deps.now?.() ?? new Date();
+      const freshUntil = computeFreshUntil(
+        collectResponseHeaders(outcome), { now },
+      );
       let digest = await deps.store.createDigest({
-        originUri: resource.url,
+        originUri: url,
         type: 'file',
         file: {
           name: fileNameForUrl(outcome.finalUrl, mime),
@@ -214,6 +371,7 @@ export async function fetchFileArtefact(
           origin_etag: outcome.etag,
           last_modified: outcome.lastModified,
           last_fetched: stampOf(deps),
+          fresh_until: freshUntil,
         },
       });
       log?.write({

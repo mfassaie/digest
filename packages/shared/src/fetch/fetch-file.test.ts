@@ -99,19 +99,31 @@ describe('fetchFileArtefact over http', () => {
     expect(first.kind).toBe('digest');
 
     const seen: Headers[] = [];
-    const notModified: typeof fetch = async (_input, init) => {
-      seen.push(new Headers(init?.headers as Record<string, string>));
-      return new Response(null, { status: 304 });
-    };
-    const second = await fetchFileArtefact({
-      store, settings: DEFAULT_SETTINGS, fetchImpl: notModified,
-      now: () => stamps[1],
-    }, MD_URL);
+    const revalidated = new Promise<void>((resolve) => {
+      const notModified: typeof fetch = async (_input, init) => {
+        seen.push(new Headers(init?.headers as Record<string, string>));
+        // Signal completion after a microtask so the store update runs.
+        queueMicrotask(resolve);
+        return new Response(null, { status: 304 });
+      };
+      // Second call is stale (no fresh_until): returns from cache
+      // synchronously and fires background revalidation with validators.
+      fetchFileArtefact({
+        store, settings: DEFAULT_SETTINGS, fetchImpl: notModified,
+        now: () => stamps[1],
+      }, MD_URL).then((second) => {
+        expect(second.kind).toBe('digest');
+        if (second.kind === 'digest') {
+          expect(second.source).toBe('cache');
+        }
+      });
+    });
+    await revalidated;
+    // Allow the background store update to complete.
+    await new Promise((r) => setTimeout(r, 50));
     expect(seen[0].get('if-none-match')).toBe('W/"v1"');
-    expect(second.kind).toBe('digest');
-    if (second.kind !== 'digest') return;
-    expect(second.source).toBe('cache');
-    const entry = await store.readIndexEntry(second.digest.id);
+    if (first.kind !== 'digest') return;
+    const entry = await store.readIndexEntry(first.digest.id);
     expect(entry?.last_fetched).toBe('2026-06-13T11:00:00.000Z');
   });
 
@@ -371,5 +383,165 @@ describe('fetchFileArtefact with chunk_mode standard', () => {
       (line) => (JSON.parse(line) as { event: string }).event,
     );
     expect(events).toContain('chunked');
+  });
+});
+
+describe('SWR freshness (plan M7)', () => {
+  it('returns from cache without network when entry is fresh', async () => {
+    const now = new Date('2026-06-13T10:00:00Z');
+    const store = createArtefactStore(root, { now: () => now });
+    // Seed a file Digest with a fresh_until in the future.
+    await store.createDigest({
+      originUri: MD_URL, type: 'file',
+      file: { name: 'guide.md', mimeType: 'text/markdown', bytes: '# A\n' },
+      index: {
+        last_fetched: now.toISOString(),
+        fresh_until: '2026-06-13T12:00:00.000Z',
+      },
+    });
+    const mustNotFetch: typeof fetch = async () => {
+      throw new Error('network must not be touched for a fresh entry');
+    };
+    const out = await fetchFileArtefact({
+      store, settings: DEFAULT_SETTINGS, fetchImpl: mustNotFetch,
+      now: () => now,
+    }, MD_URL);
+    expect(out.kind).toBe('digest');
+    if (out.kind !== 'digest') return;
+    expect(out.source).toBe('cache');
+    expect(out.digest.file.name).toBe('guide.md');
+  });
+
+  it('returns stale cache immediately and fires background revalidation',
+    async () => {
+      const t0 = new Date('2026-06-13T08:00:00Z');
+      const t1 = new Date('2026-06-13T11:00:00Z');
+      const store = createArtefactStore(root, { now: () => t0 });
+      // Seed with a stale entry (fresh_until in the past relative to t1).
+      await store.createDigest({
+        originUri: MD_URL, type: 'file',
+        file: {
+          name: 'guide.md', mimeType: 'text/markdown', bytes: '# Old\n',
+        },
+        index: {
+          last_fetched: t0.toISOString(),
+          fresh_until: '2026-06-13T09:00:00.000Z',
+          origin_etag: 'W/"old"',
+        },
+      });
+      let revalidateCalled = false;
+      const revalidated = new Promise<void>((resolve) => {
+        const bg: typeof fetch = async () => {
+          revalidateCalled = true;
+          resolve();
+          return new Response('# New\n', {
+            status: 200,
+            headers: {
+              'content-type': 'text/markdown',
+              etag: 'W/"new"',
+              'cache-control': 'max-age=7200',
+            },
+          });
+        };
+        // Synchronous return should be from cache.
+        fetchFileArtefact({
+          store, settings: DEFAULT_SETTINGS, fetchImpl: bg,
+          now: () => t1,
+        }, MD_URL).then((out) => {
+          expect(out.kind).toBe('digest');
+          if (out.kind === 'digest') {
+            expect(out.source).toBe('cache');
+          }
+        });
+      });
+      await revalidated;
+      // Let the background store write complete.
+      await new Promise((r) => setTimeout(r, 100));
+      expect(revalidateCalled).toBe(true);
+      // The background revalidation should have updated the stored Digest.
+      const id = artefactId(MD_URL, 'file');
+      const updated = await store.readDigest(id);
+      expect(updated?.file.hash).not.toBe(
+        'sha256:' + 'a'.repeat(64),
+      );
+      const entry = await store.readIndexEntry(id);
+      expect(entry?.origin_etag).toBe('W/"new"');
+      expect(entry?.fresh_until).toBeDefined();
+    });
+
+  it('goes to synchronous fetch on a miss (no stored entry)', async () => {
+    const now = new Date('2026-06-13T10:00:00Z');
+    const out = await fetchFileArtefact({
+      store: createArtefactStore(root, { now: () => now }),
+      settings: DEFAULT_SETTINGS,
+      fetchImpl: respond('# Fresh\n', {
+        'content-type': 'text/markdown',
+        'cache-control': 'max-age=3600',
+      }),
+      now: () => now,
+    }, MD_URL);
+    expect(out.kind).toBe('digest');
+    if (out.kind !== 'digest') return;
+    expect(out.source).toBe('network');
+    // The synchronous fetch should compute fresh_until from cache-control.
+    const id = artefactId(MD_URL, 'file');
+    const entry = await (createArtefactStore(root)).readIndexEntry(id);
+    expect(entry?.fresh_until).toBe('2026-06-13T11:00:00.000Z');
+  });
+
+  it('abort-bounds background revalidation on timeout', async () => {
+    const t0 = new Date('2026-06-13T08:00:00Z');
+    const t1 = new Date('2026-06-13T11:00:00Z');
+    const store = createArtefactStore(root, { now: () => t0 });
+    await store.createDigest({
+      originUri: MD_URL, type: 'file',
+      file: {
+        name: 'guide.md', mimeType: 'text/markdown', bytes: '# Old\n',
+      },
+      index: {
+        last_fetched: t0.toISOString(),
+        fresh_until: '2026-06-13T09:00:00.000Z',
+      },
+    });
+    let aborted = false;
+    const hang: typeof fetch = (_input, init) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          aborted = true;
+          reject(new DOMException('aborted', 'AbortError'));
+        });
+      });
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      fetch: { timeout_seconds: 1, retries: 0 },
+    };
+    const out = await fetchFileArtefact({
+      store, settings, fetchImpl: hang,
+      now: () => t1,
+    }, MD_URL);
+    // Synchronous return from cache should be immediate.
+    expect(out.kind).toBe('digest');
+    if (out.kind === 'digest') expect(out.source).toBe('cache');
+    // Wait for the abort timer to fire (1s budget).
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(aborted).toBe(true);
+  }, 10_000);
+
+  it('computes fresh_until from response cache-control headers', async () => {
+    const now = new Date('2026-06-13T10:00:00Z');
+    const out = await fetchFileArtefact(deps(respond('data', {
+      'content-type': 'text/markdown',
+      'cache-control': 'max-age=1800',
+    }), { now: () => now }), MD_URL);
+    if (out.kind !== 'digest') throw new Error('expected digest');
+    // Read from the same root that deps() wrote to.
+    const store2 = createArtefactStore(root);
+    const entry2 = await store2.readIndexEntry(out.digest.id);
+    expect(entry2?.fresh_until).toBeDefined();
+    // Allow a small timing drift from http-cache-semantics using real
+    // Date.now() internally (typically <10ms).
+    const expected = new Date('2026-06-13T10:30:00.000Z').getTime();
+    const actual = new Date(entry2!.fresh_until!).getTime();
+    expect(Math.abs(actual - expected)).toBeLessThan(1000);
   });
 });

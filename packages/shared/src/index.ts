@@ -10,6 +10,7 @@ export * from './store/ids.js';
 export * from './store/hash.js';
 export * from './store/record.js';
 export * from './store/store.js';
+export * from './fetch/freshness.js';
 export * from './fetch/http-engine.js';
 export * from './fetch/local-file.js';
 export * from './fetch/fetch-file.js';
