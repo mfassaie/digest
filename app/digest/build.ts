@@ -19,7 +19,10 @@ await build({
   platform: 'node',
   target: 'node22',
   format: 'esm',
-  external: ['@modelcontextprotocol/sdk', '@modelcontextprotocol/sdk/*', 'zod'],
+  external: [
+    '@modelcontextprotocol/sdk', '@modelcontextprotocol/sdk/*', 'zod',
+    'yaml',
+  ],
   legalComments: 'none',
   logLevel: 'info',
 });
