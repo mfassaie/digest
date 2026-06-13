@@ -21,7 +21,7 @@ await build({
   format: 'esm',
   external: [
     '@modelcontextprotocol/sdk', '@modelcontextprotocol/sdk/*',
-    'zod', 'linkedom', 'defuddle', 'defuddle/*',
+    'zod', 'linkedom', 'defuddle', 'defuddle/*', 'yaml',
   ],
   legalComments: 'none',
   logLevel: 'info',

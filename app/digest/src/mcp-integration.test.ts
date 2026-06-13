@@ -64,9 +64,9 @@ describe('MCP server over the protocol', () => {
       testDeps(), (c) => c.listTools(),
     ) as { tools?: { name?: string }[] };
     const names = (result.tools ?? []).map((t) => t.name).sort();
-    // M5 adds read_section alongside the M4 tools.
+    // M5 adds read_section, M6 adds write_section.
     expect(names).toEqual([
-      'fetch_file', 'read_document', 'read_section',
+      'fetch_file', 'read_document', 'read_section', 'write_section',
     ]);
   });
 

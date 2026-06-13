@@ -9,3 +9,4 @@ export * from './rematch.js';
 export * from './splice.js';
 export * from './extracts.js';
 export * from './walk.js';
+export * from './serialise.js';

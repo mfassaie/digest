@@ -3,6 +3,7 @@ import type { ServerDeps } from './deps.js';
 import { registerFetchFileTool } from './tools/fetch-file.js';
 import { registerReadDocumentTool } from './tools/read-document.js';
 import { registerReadSectionTool } from './tools/read-section.js';
+import { registerWriteSectionTool } from './tools/write-section.js';
 
 // Plan M4 architectural rule: one module per tool under tools/, and this
 // file ONLY registers them — M5–M8 each add a tool module without
@@ -12,5 +13,6 @@ export function createServer(deps: ServerDeps, version = '0.0.0'): McpServer {
   registerFetchFileTool(server, deps);
   registerReadDocumentTool(server, deps);
   registerReadSectionTool(server, deps);
+  registerWriteSectionTool(server, deps);
   return server;
 }

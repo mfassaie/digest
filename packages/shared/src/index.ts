@@ -17,6 +17,7 @@ export * from './fetch/fetch-file.js';
 export * from './chunking/index.js';
 export * from './document/convert-md.js';
 export * from './document/read-document.js';
+export * from './document/write-section.js';
 // Namespaced: the flat names (DocumentSection, ContentBlock, §5.3 vocab)
 // belong to the persisted record in store/record.ts — "what is stored is
 // what the tools serve" (§2.2). The engine's in-memory model additionally

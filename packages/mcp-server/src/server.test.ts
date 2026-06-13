@@ -65,8 +65,11 @@ describe('the registered tool surface', () => {
       testDeps(), (c) => c.listTools(),
     ) as { tools?: { name?: string }[] };
     const names = (result.tools ?? []).map((t) => t.name).sort();
-    // The old fetch/read tools are gone (plan M4). M5 adds read_section.
-    expect(names).toEqual(['fetch_file', 'read_document', 'read_section']);
+    // The old fetch/read tools are gone (plan M4). M5 adds read_section,
+    // M6 adds write_section.
+    expect(names).toEqual([
+      'fetch_file', 'read_document', 'read_section', 'write_section',
+    ]);
   });
 
   it('fetch_file then read_document works over the protocol', async () => {
