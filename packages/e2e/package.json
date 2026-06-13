@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "End-to-end tests: drive the host tool handlers live (md flow needs no Docker; container flows return in M9)",
+  "description": "End-to-end tests: verify-dev, verify-store, verify-settings (no Docker); e2e, verify-docroot (Docker-dependent)",
   "scripts": {
     "comment:deferred": "TODO: verify-html (Docker-dependent HTML test via container dispatch) and concurrent-fetch (parallel fetch stress test) need a running Docker daemon and the rebuilt digest:local image. Implement when the container is available.",
     "test": "tsx verify-dev.ts && tsx verify-store.ts && tsx verify-settings.ts",

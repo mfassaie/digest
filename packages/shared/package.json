@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared host-side core for digest: types, url, cache, structure, read engine, markdown engine, logging",
+  "description": "Shared host-side core for digest: settings engine, artefact store, markdown engine (fold/splice/ids), fetch (HTTP + file), SWR freshness, chunking, HTML adapter, logging",
   "exports": {
     ".": {
       "types": "./src/index.ts",

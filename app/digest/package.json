@@ -2,7 +2,7 @@
   "name": "@mfassaie/digest",
   "version": "0.4.0",
   "type": "module",
-  "description": "MCP server that fetches web pages via a headless browser (CloakBrowser in Docker) and serves structured Markdown: summary, sections, keywords or full text",
+  "description": "MCP server that fetches files into a structured artefact store, converts markdown and HTML to a typed section tree, and serves content through fetch_file, read_document, read_section, and write_section tools",
   "bin": {
     "digest": "dist/index.js"
   },
