@@ -30,9 +30,9 @@
     "@digest/docker": "workspace:*",
     "@digest/mcp-server": "workspace:*",
     "@digest/shared": "workspace:*",
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.9.3",
     "@types/turndown": "^5.0.5",
     "tsx": "^4.19.2",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   }
 }
