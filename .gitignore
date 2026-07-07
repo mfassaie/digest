@@ -1,3 +1,4 @@
+CLAUDE.md
 CLAUDE.local.md
 .claude/
 .mcp.json
@@ -10,3 +11,4 @@ coverage/
 .obsidian/
 .claudian/
 /.obsidianignore
+docs/
