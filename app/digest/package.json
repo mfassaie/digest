@@ -57,11 +57,11 @@
     "@digest/mcp-server": "workspace:*",
     "@digest/shared": "workspace:*",
     "@types/node": "^25.5.0",
-    "@vitest/coverage-v8": "^4.1.2",
-    "esbuild": "^0.28.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "esbuild": "^0.28.1",
     "mcp-testing-kit": "0.2.0",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.1",
     "typescript": "^6.0.2",
-    "vitest": "^4.1.2"
+    "vitest": "^4.1.10"
   }
 }
