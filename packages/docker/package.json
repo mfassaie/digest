@@ -19,9 +19,9 @@
   },
   "dependencies": {
     "@digest/shared": "workspace:*",
-    "defuddle": "^0.15.0",
-    "linkedom": "^0.18.12",
-    "playwright-core": "^1.49.1"
+    "defuddle": "^0.19.1",
+    "linkedom": "^0.18.13",
+    "playwright-core": "^1.61.1"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
