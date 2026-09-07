@@ -22,7 +22,7 @@
     "@digest/mcp-server": "workspace:*",
     "@digest/shared": "workspace:*",
     "@types/node": "^25.5.0",
-    "tsx": "^4.19.2",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.2"
   }
 }
